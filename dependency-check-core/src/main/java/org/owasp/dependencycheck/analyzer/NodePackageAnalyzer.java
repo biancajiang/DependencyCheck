@@ -68,11 +68,17 @@ public class NodePackageAnalyzer extends AbstractFileTypeAnalyzer {
      * The file name to scan.
      */
     public static final String PACKAGE_JSON = "package.json";
+
+    /**
+     * The file name to scan.
+     */
+    public static final String BOWER_JSON = "bower.json";
+    
     /**
      * Filter that detects files named "package.json".
      */
     private static final FileFilter PACKAGE_JSON_FILTER = FileFilterBuilder.newInstance()
-            .addFilenames(PACKAGE_JSON).build();
+            .addFilenames(PACKAGE_JSON).addFilenames(BOWER_JSON).build();
 
     /**
      * Returns the FileFilter
@@ -124,10 +130,14 @@ public class NodePackageAnalyzer extends AbstractFileTypeAnalyzer {
     protected void analyzeFileType(Dependency dependency, Engine engine)
             throws AnalysisException {
         final File file = dependency.getActualFile();
+        final String source = file.getName().equals(PACKAGE_JSON) ? PACKAGE_JSON :BOWER_JSON;
         JsonReader jsonReader;
         try {
             jsonReader = Json.createReader(FileUtils.openInputStream(file));
         } catch (IOException e) {
+            throw new AnalysisException(
+                    "Problem occurred while reading dependency file.", e);
+        } catch (JsonException e) {
             throw new AnalysisException(
                     "Problem occurred while reading dependency file.", e);
         }
@@ -139,21 +149,26 @@ public class NodePackageAnalyzer extends AbstractFileTypeAnalyzer {
                 final Object value = json.get("name");
                 if (value instanceof JsonString) {
                     final String valueString = ((JsonString) value).getString();
-                    productEvidence.addEvidence(PACKAGE_JSON, "name", valueString, Confidence.HIGHEST);
-                    vendorEvidence.addEvidence(PACKAGE_JSON, "name_project", String.format("%s_project", valueString), Confidence.LOW);
+                    productEvidence.addEvidence(source, "name", valueString, Confidence.HIGHEST);
+                    vendorEvidence.addEvidence(source, "name_project", String.format("%s_project", valueString), Confidence.LOW);
                 } else {
                     LOGGER.warn("JSON value not string as expected: {}", value);
                 }
             }
-            addToEvidence(json, productEvidence, "description");
-            addToEvidence(json, vendorEvidence, "author");
-            addToEvidence(json, dependency.getVersionEvidence(), "version");
+            addToEvidence(json, source, productEvidence, "description");
+            addToEvidence(json, source, vendorEvidence, "author");
+            addToEvidence(json, source, dependency.getVersionEvidence(), "version");
+            addToEvidence(json, source, vendorEvidence, "license");
+            addToEvidence(json, source, vendorEvidence, "homepage");
+            addToEvidence(json, source, vendorEvidence, "repository");
             dependency.setDisplayFileName(String.format("%s/%s", file.getParentFile().getName(), file.getName()));
         } catch (JsonException e) {
             LOGGER.warn("Failed to parse package.json file.", e);
         } finally {
             jsonReader.close();
         }
+        
+        setPackagePath(dependency);
     }
 
     /**
@@ -164,18 +179,18 @@ public class NodePackageAnalyzer extends AbstractFileTypeAnalyzer {
      * @param collection a set of evidence about a dependency
      * @param key the key to obtain the data from the json information
      */
-    private void addToEvidence(JsonObject json, EvidenceCollection collection, String key) {
+    private void addToEvidence(JsonObject json, String source, EvidenceCollection collection, String key) {
         if (json.containsKey(key)) {
             final JsonValue value = json.get(key);
             if (value instanceof JsonString) {
-                collection.addEvidence(PACKAGE_JSON, key, ((JsonString) value).getString(), Confidence.HIGHEST);
+                collection.addEvidence(source, key, ((JsonString) value).getString(), Confidence.HIGHEST);
             } else if (value instanceof JsonObject) {
                 final JsonObject jsonObject = (JsonObject) value;
                 for (final Map.Entry<String, JsonValue> entry : jsonObject.entrySet()) {
                     final String property = entry.getKey();
                     final JsonValue subValue = entry.getValue();
                     if (subValue instanceof JsonString) {
-                        collection.addEvidence(PACKAGE_JSON,
+                        collection.addEvidence(source,
                                 String.format("%s.%s", key, property),
                                 ((JsonString) subValue).getString(),
                                 Confidence.HIGHEST);
@@ -187,5 +202,12 @@ public class NodePackageAnalyzer extends AbstractFileTypeAnalyzer {
                 LOGGER.warn("JSON value not string or JSON object as expected: {}", value);
             }
         }
+    }
+
+    private void setPackagePath(Dependency dep) {
+    	File file = new File(dep.getFilePath());
+    	String parent = file.getParent();
+    	if(parent != null)
+    		dep.setPackagePath(parent);
     }
 }

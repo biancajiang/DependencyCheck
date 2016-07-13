@@ -158,6 +158,13 @@ public class DependencyBundlingAnalyzer extends AbstractAnalyzer implements Anal
                                 mergeDependencies(nextDependency, dependency, dependenciesToRemove);
                                 break; //since we merged into the next dependency - skip forward to the next in mainIterator
                             }
+                        } else if ( (main = getMainNodeDependency(dependency, nextDependency)) != null) {
+                        	if (main == dependency) {
+                        		mergeDependencies(dependency, nextDependency, dependenciesToRemove);
+                        	} else {
+                                mergeDependencies(nextDependency, dependency, dependenciesToRemove);
+                                break; //since we merged into the next dependency - skip forward to the next in mainIterator
+                            }
                         }
                     }
                 }
@@ -404,6 +411,29 @@ public class DependencyBundlingAnalyzer extends AbstractAnalyzer implements Anal
     private Dependency getMainSwiftDependency(Dependency dependency1, Dependency dependency2) {
     	if (isSameSwiftPackage(dependency1, dependency2)) {
     		if(dependency1.getFileName().endsWith(".podspec"))
+    			return dependency1;
+            return dependency2;
+        }
+        return null;
+    }
+
+    /**
+     * Bundling same swift dependencies with the same packagePath but identified by different analyzers.
+     */
+    private boolean isSameNodePackage(Dependency dependency1, Dependency dependency2) {
+    	if (dependency1 == null || dependency2 == null ||
+    		dependency1.getPackagePath() == null ||
+    		dependency2.getPackagePath() == null) {
+            return false;
+        }
+        if (dependency1.getPackagePath().equalsIgnoreCase(dependency2.getPackagePath()))
+        	return true;
+
+       	return false;
+    }
+    private Dependency getMainNodeDependency(Dependency dependency1, Dependency dependency2) {
+    	if (isSameNodePackage(dependency1, dependency2)) {
+    		if(dependency1.getFileName().equalsIgnoreCase(NodePackageAnalyzer.PACKAGE_JSON))
     			return dependency1;
             return dependency2;
         }
