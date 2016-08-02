@@ -226,6 +226,10 @@ public class SSLSocketFactoryEx extends SSLSocketFactory {
         sslCtxt.init(km, tm, random);
 
         protocols = getProtocolList();
+        LOGGER.info("SSLSocket protocols: ");
+        for(String protocol : protocols) {
+        	LOGGER.info("   " + protocol);
+        }
         ciphers = getCipherList();
     }
 
@@ -242,7 +246,7 @@ public class SSLSocketFactoryEx extends SSLSocketFactory {
         sslCtxt = ctx;
 
         protocols = getProtocolList();
-        LOGGER.info("SSLSocket protocols: ");
+        LOGGER.info("SSLSocket context: " + ctx.toString() + " & protocols: ");
         for(String protocol : protocols) {
         	LOGGER.info("   " + protocol);
         }
