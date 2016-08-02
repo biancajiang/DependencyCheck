@@ -242,6 +242,11 @@ public class SSLSocketFactoryEx extends SSLSocketFactory {
         sslCtxt = ctx;
 
         protocols = getProtocolList();
+        LOGGER.info("SSLSocket protocols: ");
+        for(String protocol : protocols) {
+        	LOGGER.info("   " + protocol);
+        }
+        
         ciphers = getCipherList();
     }
 
@@ -251,7 +256,7 @@ public class SSLSocketFactoryEx extends SSLSocketFactory {
      * @return the protocol list
      */
     protected String[] getProtocolList() {
-        final String[] preferredProtocols = {"TLSv1.1", "TLSv1.2", "TLSv1.3"};
+        final String[] preferredProtocols = {"TLSv1.2", "TLSv1.3"};
         String[] availableProtocols = null;
 
         SSLSocket socket = null;
@@ -262,7 +267,6 @@ public class SSLSocketFactoryEx extends SSLSocketFactory {
 
             availableProtocols = socket.getSupportedProtocols();
             Arrays.sort(availableProtocols);
-            LOGGER.info("Available SSLSocket protocols: " + availableProtocols);
         } catch (Exception ex) {
             LOGGER.debug("Error getting protocol list, using TLSv1.1", ex);
             return new String[]{"TLSv1.1"};
