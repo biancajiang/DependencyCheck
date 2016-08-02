@@ -262,6 +262,7 @@ public class SSLSocketFactoryEx extends SSLSocketFactory {
 
             availableProtocols = socket.getSupportedProtocols();
             Arrays.sort(availableProtocols);
+            LOGGER.info("Available SSLSocket protocols: " + availableProtocols);
         } catch (Exception ex) {
             LOGGER.debug("Error getting protocol list, using TLSv1.1", ex);
             return new String[]{"TLSv1.1"};
