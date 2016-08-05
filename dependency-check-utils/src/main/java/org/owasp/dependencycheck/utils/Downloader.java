@@ -31,9 +31,6 @@ import java.net.URL;
 import java.security.InvalidAlgorithmParameterException;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.InflaterInputStream;
-
-import javax.net.ssl.HttpsURLConnection;
-
 import static java.lang.String.format;
 
 /**
@@ -254,11 +251,6 @@ public final class Downloader {
             try {
                 conn = URLConnectionFactory.createHttpURLConnection(url);
                 conn.setRequestMethod(httpMethod);
-                String[] protocols = ((SSLSocketFactoryEx)((HttpsURLConnection)conn).getSSLSocketFactory()).getProtocolList();
-                LOGGER.info("connection protocols:");
-                for(String proto : protocols) {
-                	LOGGER.info("   " + proto);
-                }
                 conn.connect();
                 final int t = conn.getResponseCode();
                 if (t >= 200 && t < 300) {
@@ -271,9 +263,9 @@ public final class Downloader {
             } catch (IOException ex) {
                 checkForCommonExceptionTypes(ex);
                 LOGGER.error("IO Exception: " + ex.getMessage());
-                LOGGER.info("Exception details", ex);
+                LOGGER.debug("Exception details", ex);
                 if (ex.getCause() != null) {
-                    LOGGER.info("IO Exception cause: " + ex.getCause().getMessage(), ex.getCause());
+                    LOGGER.debug("IO Exception cause: " + ex.getCause().getMessage(), ex.getCause());
                 }
                 try {
                     //retry
@@ -282,7 +274,7 @@ public final class Downloader {
                         return getLastModified(url, true);
                     }
                 } catch (InvalidSettingException ex1) {
-                    LOGGER.info("invalid setting?", ex);
+                    LOGGER.debug("invalid setting?", ex);
                 }
                 throw new DownloadFailedException(format("Error making HTTP %s request.", httpMethod), ex);
             } finally {
