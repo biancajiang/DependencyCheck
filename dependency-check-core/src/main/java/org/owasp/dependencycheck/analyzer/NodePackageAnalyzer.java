@@ -129,7 +129,12 @@ public class NodePackageAnalyzer extends AbstractFileTypeAnalyzer {
     @Override
     protected void analyzeFileType(Dependency dependency, Engine engine)
             throws AnalysisException {
-        final File file = dependency.getActualFile();
+        final File file = dependency.getActualFile(); 
+        if(file.length() == 0) {
+//        	engine.getDependencies().remove(dependency);
+        	return;
+        }
+        
         final String source = file.getName().equals(PACKAGE_JSON) ? PACKAGE_JSON :BOWER_JSON;
         JsonReader jsonReader;
         try {
