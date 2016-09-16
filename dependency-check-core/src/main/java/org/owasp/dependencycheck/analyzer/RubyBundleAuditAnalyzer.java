@@ -280,10 +280,15 @@ public class RubyBundleAuditAnalyzer extends AbstractFileTypeAnalyzer {
         }
         final File parentFile = dependency.getActualFile().getParentFile();
         final Process process = launchBundleAudit(parentFile);
+        final int exitValue;
         try {
-            process.waitFor();
+            exitValue = process.waitFor();
         } catch (InterruptedException ie) {
             throw new AnalysisException("bundle-audit process interrupted", ie);
+        }
+        if (exitValue != 0) {
+            final String msg = String.format("Unexpected exit code from bundle-audit process; exit code: %s", exitValue);
+            throw new AnalysisException(msg);
         }
         BufferedReader rdr = null;
         BufferedReader errReader = null;
@@ -483,7 +488,9 @@ public class RubyBundleAuditAnalyzer extends AbstractFileTypeAnalyzer {
      */
     private Dependency createDependencyForGem(Engine engine, String parentName, String fileName, String filePath, String gem) throws IOException {
         final File gemFile = new File(Settings.getTempDirectory(), gem + "_Gemfile.lock");
-        gemFile.createNewFile();
+        if (!gemFile.createNewFile()) {
+            throw new IOException("Unable to create temporary gem file");
+        }
         final String displayFileName = String.format("%s%c%s:%s", parentName, File.separatorChar, fileName, gem);
 
         FileUtils.write(gemFile, displayFileName, Charset.defaultCharset()); // unique contents to avoid dependency bundling

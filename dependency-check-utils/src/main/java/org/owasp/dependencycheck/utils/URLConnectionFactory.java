@@ -28,11 +28,10 @@ import java.net.PasswordAuthentication;
 import java.net.Proxy;
 import java.net.SocketAddress;
 import java.net.URL;
+import java.net.URLConnection;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import javax.net.ssl.HttpsURLConnection;
-import org.apache.commons.lang3.JavaVersion;
-import org.apache.commons.lang3.SystemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -190,8 +189,8 @@ public final class URLConnectionFactory {
      * @param url the URL
      * @param conn the connection
      */
-    private static void configureTLS(URL url, HttpURLConnection conn) {
-        if ("https".equals(url.getProtocol()) && !SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_1_8)) {
+    private static void configureTLS(URL url, URLConnection conn) {
+        if ("https".equals(url.getProtocol())) {
             try {
                 final HttpsURLConnection secCon = (HttpsURLConnection) conn;
                 final SSLSocketFactoryEx factory = new SSLSocketFactoryEx();

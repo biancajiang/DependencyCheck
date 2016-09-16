@@ -70,11 +70,12 @@ public class FileNameAnalyzer extends AbstractAnalyzer implements Analyzer {
     /**
      * Python init files
      */
+    //CSOFF: WhitespaceAfter
     private static final NameFileFilter IGNORED_FILES = new NameFileFilter(new String[]{
         "__init__.py",
         "__init__.pyc",
-        "__init__.pyo",
-    });
+        "__init__.pyo",});
+    //CSON: WhitespaceAfter
 
     /**
      * Collects information about the file name.
@@ -111,9 +112,9 @@ public class FileNameAnalyzer extends AbstractAnalyzer implements Analyzer {
 
         if (!IGNORED_FILES.accept(f)) {
             dependency.getProductEvidence().addEvidence("file", "name",
-            		packageName, Confidence.HIGH);
+                    packageName, Confidence.HIGH);
             dependency.getVendorEvidence().addEvidence("file", "name",
-            		packageName, Confidence.HIGH);
+                    packageName, Confidence.HIGH);
         }
     }
 }

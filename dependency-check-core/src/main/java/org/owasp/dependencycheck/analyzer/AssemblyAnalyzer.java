@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.xml.parsers.ParserConfigurationException;
 import org.owasp.dependencycheck.exception.InitializationException;
+import org.apache.commons.lang3.SystemUtils;
 
 /**
  * Analyzer for getting company, product, and version information from a .NET
@@ -85,18 +86,19 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
      *
      * @return the list of arguments to begin populating the ProcessBuilder
      */
-    private List<String> buildArgumentList() {
+    protected List<String> buildArgumentList() {
         // Use file.separator as a wild guess as to whether this is Windows
         final List<String> args = new ArrayList<String>();
-        if (!"\\".equals(System.getProperty("file.separator"))) {
+        if (!SystemUtils.IS_OS_WINDOWS) {
             if (Settings.getString(Settings.KEYS.ANALYZER_ASSEMBLY_MONO_PATH) != null) {
                 args.add(Settings.getString(Settings.KEYS.ANALYZER_ASSEMBLY_MONO_PATH));
-            } else {
+            } else if (isInPath("mono")) {
                 args.add("mono");
+            } else {
+                return null;
             }
         }
         args.add(grokAssemblyExe.getPath());
-
         return args;
     }
 
@@ -116,6 +118,10 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
         }
 
         final List<String> args = buildArgumentList();
+        if (args == null) {
+            LOGGER.warn("Assembly Analyzer was unable to execute");
+            return;
+        }
         args.add(dependency.getActualFilePath());
         final ProcessBuilder pb = new ProcessBuilder(args);
         Document doc = null;
@@ -203,8 +209,6 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
             IOUtils.copy(is, fos);
 
             grokAssemblyExe = tempFile;
-            // Set the temp file to get deleted when we're done
-            grokAssemblyExe.deleteOnExit();
             LOGGER.debug("Extracted GrokAssembly.exe to {}", grokAssemblyExe.getPath());
         } catch (IOException ioe) {
             this.setEnabled(false);
@@ -229,6 +233,22 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
 
         // Now, need to see if GrokAssembly actually runs from this location.
         final List<String> args = buildArgumentList();
+        //TODO this creaes an "unreported" error - if someone doesn't look
+        // at the command output this could easily be missed (especially in an
+        // Ant or Mmaven build.
+        //
+        // We need to create a non-fatal warning error type that will
+        // get added to the report.
+        //TOOD this idea needs to get replicated to the bundle audit analyzer.
+        if (args == null) {
+            setEnabled(false);
+            LOGGER.error("----------------------------------------------------");
+            LOGGER.error(".NET Assembly Analyzer could not be initialized and at least one "
+                    + "'exe' or 'dll' was scanned. The 'mono' executale could not be found on "
+                    + "the path; either disable the Assembly Analyzer or configure the path mono.");
+            LOGGER.error("----------------------------------------------------");
+            return;
+        }
         try {
             final ProcessBuilder pb = new ProcessBuilder(args);
             final Process p = pb.start();
@@ -246,6 +266,7 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
                 throw new InitializationException("Could not execute .NET AssemblyAnalyzer");
             }
         } catch (InitializationException e) {
+            setEnabled(false);
             throw e;
         } catch (Throwable e) {
             LOGGER.warn("An error occurred with the .NET AssemblyAnalyzer;\n"
@@ -272,10 +293,12 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
         super.close();
         try {
             if (grokAssemblyExe != null && !grokAssemblyExe.delete()) {
+                LOGGER.debug("Unable to delete temporary GrokAssembly.exe; attempting delete on exit");
                 grokAssemblyExe.deleteOnExit();
             }
         } catch (SecurityException se) {
             LOGGER.debug("Can't delete temporary GrokAssembly.exe");
+            grokAssemblyExe.deleteOnExit();
         }
     }
 
@@ -319,5 +342,30 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
     @Override
     protected String getAnalyzerEnabledSettingKey() {
         return Settings.KEYS.ANALYZER_ASSEMBLY_ENABLED;
+    }
+
+    /**
+     * Tests to see if a file is in the system path. <b>Note</b> - the current
+     * implementation only works on non-windows platforms. For purposes of the
+     * AssemblyAnalyzer this is okay as this is only needed on Mac/*nix.
+     *
+     * @param file the executable to look for
+     * @return <code>true</code> if the file exists; otherwise
+     * <code>false</code>
+     */
+    private boolean isInPath(String file) {
+        final ProcessBuilder pb = new ProcessBuilder("which", file);
+        try {
+            final Process proc = pb.start();
+            final int retCode = proc.waitFor();
+            if (retCode == 0) {
+                return true;
+            }
+        } catch (IOException ex) {
+            LOGGER.debug("Path seach failed for " + file);
+        } catch (InterruptedException ex) {
+            LOGGER.debug("Path seach failed for " + file);
+        }
+        return false;
     }
 }

@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.StringTokenizer;
+import org.apache.commons.lang3.builder.CompareToBuilder;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.queryparser.classic.ParseException;
@@ -550,7 +551,7 @@ public class CPEAnalyzer implements Analyzer {
         final List<IdentifierMatch> collected = new ArrayList<IdentifierMatch>();
 
         //TODO the following algorithm incorrectly identifies things as a lower version
-        // if there lower confidence evidence when the current (highest) version number 
+        // if there lower confidence evidence when the current (highest) version number
         // is newer then anything in the NVD.
         for (Confidence conf : Confidence.values()) {
             for (Evidence evidence : dependency.getVersionEvidence().iterator(conf)) {
@@ -801,6 +802,12 @@ public class CPEAnalyzer implements Analyzer {
          */
         @Override
         public int compareTo(IdentifierMatch o) {
+            return new CompareToBuilder()
+                    .append(confidence, o.confidence)
+                    .append(evidenceConfidence, o.evidenceConfidence)
+                    .append(identifier, o.identifier)
+                    .toComparison();
+            /*
             int conf = this.confidence.compareTo(o.confidence);
             if (conf == 0) {
                 conf = this.evidenceConfidence.compareTo(o.evidenceConfidence);
@@ -809,6 +816,7 @@ public class CPEAnalyzer implements Analyzer {
                 }
             }
             return conf;
+             */
         }
     }
 }

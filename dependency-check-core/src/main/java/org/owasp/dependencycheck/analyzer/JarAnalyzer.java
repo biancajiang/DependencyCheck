@@ -325,8 +325,10 @@ public class JarAnalyzer extends AbstractFileTypeAnalyzer {
                     } else {
                         pom = PomUtils.readPom(externalPom);
                     }
-                    pom.processProperties(pomProperties);
-                    foundSomething |= setPomEvidence(dependency, pom, classes);
+                    if (pom != null) {
+                        pom.processProperties(pomProperties);
+                        foundSomething |= setPomEvidence(dependency, pom, classes);
+                    }
                 }
             } catch (AnalysisException ex) {
                 LOGGER.warn("An error occurred while analyzing '{}'.", dependency.getActualFilePath());
@@ -409,6 +411,9 @@ public class JarAnalyzer extends AbstractFileTypeAnalyzer {
         final File file = new File(tmpDir, "pom.xml");
         try {
             final ZipEntry entry = jar.getEntry(path);
+            if (entry == null) {
+                throw new AnalysisException(String.format("Pom (%s)does not exist in %s", path, jar.getName()));
+            }
             input = jar.getInputStream(entry);
             fos = new FileOutputStream(file);
             IOUtils.copy(input, fos);
@@ -487,7 +492,7 @@ public class JarAnalyzer extends AbstractFileTypeAnalyzer {
         }
 
         final String originalGroupID = groupid;
-        if (groupid.startsWith("org.") || groupid.startsWith("com.")) {
+        if (groupid != null && (groupid.startsWith("org.") || groupid.startsWith("com."))) {
             groupid = groupid.substring(4);
         }
 
@@ -496,7 +501,7 @@ public class JarAnalyzer extends AbstractFileTypeAnalyzer {
         }
 
         final String originalArtifactID = artifactid;
-        if (artifactid.startsWith("org.") || artifactid.startsWith("com.")) {
+        if (artifactid != null && (artifactid.startsWith("org.") || artifactid.startsWith("com."))) {
             artifactid = artifactid.substring(4);
         }
 
@@ -704,17 +709,12 @@ public class JarAnalyzer extends AbstractFileTypeAnalyzer {
                     addMatchingValues(classInformation, value, productEvidence);
 //                //the following caused false positives.
 //                } else if (key.equalsIgnoreCase(BUNDLE_VENDOR)) {
-//                    foundSomething = true;
-//                    vendorEvidence.addEvidence(source, key, value, Confidence.HIGH);
-//                    addMatchingValues(classInformation, value, vendorEvidence);
                 } else if (key.equalsIgnoreCase(BUNDLE_VERSION)) {
                     foundSomething = true;
                     versionEvidence.addEvidence(source, key, value, Confidence.HIGH);
                 } else if (key.equalsIgnoreCase(Attributes.Name.MAIN_CLASS.toString())) {
                     continue;
-                    //skipping main class as if this has important information to add
-                    // it will be added during class name analysis...  if other fields
-                    // have the information from the class name then they will get added...
+                    //skipping main class as if this has important information to add it will be added during class name analysis...
                 } else {
                     key = key.toLowerCase();
                     if (!IGNORE_KEYS.contains(key)

@@ -24,9 +24,9 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.InputStream;
 import org.apache.commons.io.filefilter.NameFileFilter;
 import org.apache.commons.io.filefilter.SuffixFileFilter;
-import org.apache.commons.io.input.AutoCloseInputStream;
 import org.apache.commons.lang3.StringUtils;
 import org.owasp.dependencycheck.Engine;
 import org.owasp.dependencycheck.analyzer.exception.AnalysisException;
@@ -228,10 +228,13 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
             throw new AnalysisException(ex);
         }
 
-        collectWheelMetadata(
-                dependency,
-                getMatchingFile(getMatchingFile(temp, folderFilter),
-                        metadataFilter));
+        File matchingFile = getMatchingFile(temp, folderFilter);
+        if (matchingFile != null) {
+            matchingFile = getMatchingFile(matchingFile, metadataFilter);
+            if (matchingFile != null) {
+                collectWheelMetadata(dependency, matchingFile);
+            }
+        }
     }
 
     /**
@@ -354,13 +357,22 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
         if (null == manifest) {
             LOGGER.debug("Manifest file not found.");
         } else {
+            InputStream in = null;
             try {
-                result.load(new AutoCloseInputStream(new BufferedInputStream(
-                        new FileInputStream(manifest))));
+                in = new BufferedInputStream(new FileInputStream(manifest));
+                result.load(in);
             } catch (MessagingException e) {
                 LOGGER.warn(e.getMessage(), e);
             } catch (FileNotFoundException e) {
                 LOGGER.warn(e.getMessage(), e);
+            } finally {
+                if (in != null) {
+                    try {
+                        in.close();
+                    } catch (IOException ex) {
+                        LOGGER.debug("failed to close input stream", ex);
+                    }
+                }
             }
         }
         return result;

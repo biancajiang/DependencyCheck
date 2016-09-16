@@ -209,10 +209,13 @@ public final class CpeMemoryIndex {
 
                 final Set<Pair<String, String>> data = cve.getVendorProductList();
                 for (Pair<String, String> pair : data) {
-                    v.setStringValue(pair.getLeft());
-                    p.setStringValue(pair.getRight());
-                    indexWriter.addDocument(doc);
-                    resetFieldAnalyzer();
+                    //todo figure out why there are null products
+                    if (pair.getLeft() != null && pair.getRight() != null) {
+                        v.setStringValue(pair.getLeft());
+                        p.setStringValue(pair.getRight());
+                        indexWriter.addDocument(doc);
+                        resetFieldAnalyzer();
+                    }
                 }
             } catch (DatabaseException ex) {
                 LOGGER.debug("", ex);

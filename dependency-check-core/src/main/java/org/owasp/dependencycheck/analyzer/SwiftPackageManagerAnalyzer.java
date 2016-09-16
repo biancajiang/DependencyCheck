@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * © Copyright IBM Corporation 2016.
+ * Copyright (c) 2016 IBM Corporation. All Rights Reserved.
  */
 package org.owasp.dependencycheck.analyzer;
 
@@ -34,8 +34,9 @@ import org.owasp.dependencycheck.utils.FileFilterBuilder;
 import org.owasp.dependencycheck.utils.Settings;
 
 /**
- * This analyzer is used to analyze the SWIFT Package Manager (https://swift.org/package-manager/).
- * It collects information about a package from Package.swift files.
+ * This analyzer is used to analyze the SWIFT Package Manager
+ * (https://swift.org/package-manager/). It collects information about a package
+ * from Package.swift files.
  *
  * @author Bianca Jiang (https://twitter.com/biancajiang)
  */
@@ -56,23 +57,18 @@ public class SwiftPackageManagerAnalyzer extends AbstractFileTypeAnalyzer {
      * The file name to scan.
      */
     public static final String SPM_FILE_NAME = "Package.swift";
-    
+
     /**
      * Filter that detects files named "package.json".
      */
     private static final FileFilter SPM_FILE_FILTER = FileFilterBuilder.newInstance().addFilenames(SPM_FILE_NAME).build();
 
     /**
-     * The capture group #1 is the block variable.  
-     * e.g. 
-     * "import PackageDescription
-     * let package = Package(
-     *     name: "Gloss"
-     *     )"
+     * The capture group #1 is the block variable. e.g. "import
+     * PackageDescription let package = Package( name: "Gloss" )"
      */
-    private static final Pattern SPM_BLOCK_PATTERN
-            = Pattern.compile("let[^=]+=\\s*Package\\s*\\(\\s*([^)]*)\\s*\\)", Pattern.DOTALL);
-    
+    private static final Pattern SPM_BLOCK_PATTERN = Pattern.compile("let[^=]+=\\s*Package\\s*\\(\\s*([^)]*)\\s*\\)", Pattern.DOTALL);
+
     /**
      * Returns the FileFilter
      *
@@ -109,7 +105,8 @@ public class SwiftPackageManagerAnalyzer extends AbstractFileTypeAnalyzer {
     }
 
     /**
-     * Returns the key used in the properties file to reference the analyzer's enabled property.
+     * Returns the key used in the properties file to reference the analyzer's
+     * enabled property.
      *
      * @return the analyzer's enabled property setting key
      */
@@ -121,8 +118,8 @@ public class SwiftPackageManagerAnalyzer extends AbstractFileTypeAnalyzer {
     @Override
     protected void analyzeFileType(Dependency dependency, Engine engine)
             throws AnalysisException {
-    	
-    	String contents;
+
+        String contents;
         try {
             contents = FileUtils.readFileToString(dependency.getActualFile(), Charset.defaultCharset());
         } catch (IOException e) {
@@ -131,47 +128,65 @@ public class SwiftPackageManagerAnalyzer extends AbstractFileTypeAnalyzer {
         }
         final Matcher matcher = SPM_BLOCK_PATTERN.matcher(contents);
         if (matcher.find()) {
-            contents = contents.substring(matcher.end());
             final String packageDescription = matcher.group(1);
-            if(packageDescription.isEmpty())
-            	return;
+            if (packageDescription.isEmpty()) {
+                return;
+            }
 
             final EvidenceCollection product = dependency.getProductEvidence();
             final EvidenceCollection vendor = dependency.getVendorEvidence();
-            
+
             //SPM is currently under development for SWIFT 3. Its current metadata includes package name and dependencies.
             //Future interesting metadata: version, license, homepage, author, summary, etc.
             final String name = addStringEvidence(product, packageDescription, "name", "name", Confidence.HIGHEST);
-            if (!name.isEmpty()) {
+            if (name != null && !name.isEmpty()) {
                 vendor.addEvidence(SPM_FILE_NAME, "name_project", name, Confidence.HIGHEST);
             }
         }
         setPackagePath(dependency);
     }
-    
+
+    /**
+     * Extracts evidence from the package description and adds it to the given
+     * evidence collection.
+     *
+     * @param evidences the evidence collection to update
+     * @param packageDescription the text to extract evidence from
+     * @param field the name of the field being searched for
+     * @param fieldPattern the field pattern within the contents to search for
+     * @param confidence the confidence level of the evidence if found
+     * @return the string that was added as evidence
+     */
     private String addStringEvidence(EvidenceCollection evidences,
             String packageDescription, String field, String fieldPattern, Confidence confidence) {
         String value = "";
-        
-    	final Matcher matcher = Pattern.compile(
+
+        final Matcher matcher = Pattern.compile(
                 String.format("%s *:\\s*\"([^\"]*)", fieldPattern), Pattern.DOTALL).matcher(packageDescription);
-    	if(matcher.find()) {
-    		value = matcher.group(1);
-    	}
-    	
-    	if(value != null) {
-    		value = value.trim();
-    		if(value.length() > 0)
-    			evidences.addEvidence (SPM_FILE_NAME, field, value, confidence);
-    	}
-    	
+        if (matcher.find()) {
+            value = matcher.group(1);
+        }
+
+        if (value != null) {
+            value = value.trim();
+            if (value.length() > 0) {
+                evidences.addEvidence(SPM_FILE_NAME, field, value, confidence);
+            }
+        }
+
         return value;
     }
 
+    /**
+     * Sets the package path on the given dependency.
+     *
+     * @param dep the dependency to update
+     */
     private void setPackagePath(Dependency dep) {
-    	File file = new File(dep.getFilePath());
-    	String parent = file.getParent();
-    	if(parent != null)
-    		dep.setPackagePath(parent);
+        final File file = new File(dep.getFilePath());
+        final String parent = file.getParent();
+        if (parent != null) {
+            dep.setPackagePath(parent);
+        }
     }
 }

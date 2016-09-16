@@ -300,11 +300,11 @@ public final class Downloader {
      * @throws DownloadFailedException a wrapper exception that contains the
      * original exception as the cause
      */
-    protected static void checkForCommonExceptionTypes(IOException ex) throws DownloadFailedException {
+    protected static synchronized void checkForCommonExceptionTypes(IOException ex) throws DownloadFailedException {
         Throwable cause = ex;
         while (cause != null) {
             if (cause instanceof java.net.UnknownHostException) {
-                final String msg = String.format("Unable to resolve domain '%s'", cause.getMessage());
+                final String msg = format("Unable to resolve domain '%s'", cause.getMessage());
                 LOGGER.error(msg);
                 throw new DownloadFailedException(msg);
             }

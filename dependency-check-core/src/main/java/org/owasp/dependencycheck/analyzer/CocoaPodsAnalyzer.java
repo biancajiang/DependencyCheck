@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * © Copyright IBM Corporation 2016.
+ * Copyright (c) 2016 IBM Corporation. All Rights Reserved.
  */
 package org.owasp.dependencycheck.analyzer;
 
@@ -35,7 +35,8 @@ import org.owasp.dependencycheck.utils.Settings;
 
 /**
  * This analyzer is used to analyze SWIFT and Objective-C packages by collecting
- *  information from .podspec files. CocoaPods dependency manager see https://cocoapods.org/.
+ * information from .podspec files. CocoaPods dependency manager see
+ * https://cocoapods.org/.
  *
  * @author Bianca Jiang (https://twitter.com/biancajiang)
  */
@@ -46,7 +47,6 @@ public class CocoaPodsAnalyzer extends AbstractFileTypeAnalyzer {
      * The logger.
      */
 //    private static final Logger LOGGER = LoggerFactory.getLogger(CocoaPodsAnalyzer.class);
-
     /**
      * The name of the analyzer.
      */
@@ -66,15 +66,12 @@ public class CocoaPodsAnalyzer extends AbstractFileTypeAnalyzer {
      */
     private static final FileFilter PODSPEC_FILTER = FileFilterBuilder.newInstance().addExtensions(PODSPEC).build();
 
-
     /**
-     * The capture group #1 is the block variable.  
-     * e.g. "Pod::Spec.new do |spec|"
+     * The capture group #1 is the block variable. e.g. "Pod::Spec.new do
+     * |spec|"
      */
-    private static final Pattern PODSPEC_BLOCK_PATTERN
-            = Pattern.compile("Pod::Spec\\.new\\s+?do\\s+?\\|(.+?)\\|");
-    
-    
+    private static final Pattern PODSPEC_BLOCK_PATTERN = Pattern.compile("Pod::Spec\\.new\\s+?do\\s+?\\|(.+?)\\|");
+
     /**
      * Returns the FileFilter
      *
@@ -111,7 +108,8 @@ public class CocoaPodsAnalyzer extends AbstractFileTypeAnalyzer {
     }
 
     /**
-     * Returns the key used in the properties file to reference the analyzer's enabled property.
+     * Returns the key used in the properties file to reference the analyzer's
+     * enabled property.
      *
      * @return the analyzer's enabled property setting key
      */
@@ -123,8 +121,8 @@ public class CocoaPodsAnalyzer extends AbstractFileTypeAnalyzer {
     @Override
     protected void analyzeFileType(Dependency dependency, Engine engine)
             throws AnalysisException {
-    	
-    	String contents;
+
+        String contents;
         try {
             contents = FileUtils.readFileToString(dependency.getActualFile(), Charset.defaultCharset());
         } catch (IOException e) {
@@ -135,11 +133,11 @@ public class CocoaPodsAnalyzer extends AbstractFileTypeAnalyzer {
         if (matcher.find()) {
             contents = contents.substring(matcher.end());
             final String blockVariable = matcher.group(1);
-            
+
             final EvidenceCollection vendor = dependency.getVendorEvidence();
             final EvidenceCollection product = dependency.getProductEvidence();
             final EvidenceCollection version = dependency.getVersionEvidence();
-            
+
             final String name = addStringEvidence(product, contents, blockVariable, "name", "name", Confidence.HIGHEST);
             if (!name.isEmpty()) {
                 vendor.addEvidence(PODSPEC, "name_project", name, Confidence.HIGHEST);
@@ -149,41 +147,59 @@ public class CocoaPodsAnalyzer extends AbstractFileTypeAnalyzer {
             addStringEvidence(vendor, contents, blockVariable, "author", "authors?", Confidence.HIGHEST);
             addStringEvidence(vendor, contents, blockVariable, "homepage", "homepage", Confidence.HIGHEST);
             addStringEvidence(vendor, contents, blockVariable, "license", "licen[cs]es?", Confidence.HIGHEST);
-            
+
             addStringEvidence(version, contents, blockVariable, "version", "version", Confidence.HIGHEST);
         }
-        
+
         setPackagePath(dependency);
     }
-    
+
+    /**
+     * Extracts evidence from the contents and adds it to the given evidence
+     * collection.
+     *
+     * @param evidences the evidence collection to update
+     * @param contents the text to extract evidence from
+     * @param blockVariable the block variable within the content to search for
+     * @param field the name of the field being searched for
+     * @param fieldPattern the field pattern within the contents to search for
+     * @param confidence the confidence level of the evidence if found
+     * @return the string that was added as evidence
+     */
     private String addStringEvidence(EvidenceCollection evidences, String contents,
             String blockVariable, String field, String fieldPattern, Confidence confidence) {
         String value = "";
-        
-    	//capture array value between [ ]
-    	final Matcher arrayMatcher = Pattern.compile(
-                String.format("\\s*?%s\\.%s\\s*?=\\s*?\\{\\s*?(.*?)\\s*?\\}", blockVariable, fieldPattern), Pattern.CASE_INSENSITIVE).matcher(contents);
-    	if(arrayMatcher.find()) {
-    		value = arrayMatcher.group(1);
-    	}
-    	//capture single value between quotes
-    	else {
-	        final Matcher matcher = Pattern.compile(
-	                String.format("\\s*?%s\\.%s\\s*?=\\s*?(['\"])(.*?)\\1", blockVariable, fieldPattern), Pattern.CASE_INSENSITIVE).matcher(contents);
-	        if (matcher.find()) {
-	            value = matcher.group(2);
-	        }
-    	}
-    	if(value.length() > 0)
-    		evidences.addEvidence(PODSPEC, field, value, confidence);
-    	
+
+        //capture array value between [ ]
+        final Matcher arrayMatcher = Pattern.compile(
+                String.format("\\s*?%s\\.%s\\s*?=\\s*?\\{\\s*?(.*?)\\s*?\\}", blockVariable, fieldPattern),
+                Pattern.CASE_INSENSITIVE).matcher(contents);
+        if (arrayMatcher.find()) {
+            value = arrayMatcher.group(1);
+        } else { //capture single value between quotes
+            final Matcher matcher = Pattern.compile(
+                    String.format("\\s*?%s\\.%s\\s*?=\\s*?(['\"])(.*?)\\1", blockVariable, fieldPattern),
+                    Pattern.CASE_INSENSITIVE).matcher(contents);
+            if (matcher.find()) {
+                value = matcher.group(2);
+            }
+        }
+        if (value.length() > 0) {
+            evidences.addEvidence(PODSPEC, field, value, confidence);
+        }
         return value;
     }
 
+    /**
+     * Sets the package path on the given dependency.
+     *
+     * @param dep the dependency to update
+     */
     private void setPackagePath(Dependency dep) {
-    	File file = new File(dep.getFilePath());
-    	String parent = file.getParent();
-    	if(parent != null)
-    		dep.setPackagePath(parent);
+        final File file = new File(dep.getFilePath());
+        final String parent = file.getParent();
+        if (parent != null) {
+            dep.setPackagePath(parent);
+        }
     }
 }
