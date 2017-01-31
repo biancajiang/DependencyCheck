@@ -277,12 +277,21 @@ public final class CliParser {
                 .desc("The file path to the suppression XML file.")
                 .build();
 
+        final Option hintsFile = Option.builder().argName("file").hasArg().longOpt(ARGUMENT.HINTS_FILE)
+                .desc("The file path to the hints XML file.")
+                .build();
+
         final Option cveValidForHours = Option.builder().argName("hours").hasArg().longOpt(ARGUMENT.CVE_VALID_FOR_HOURS)
                 .desc("The number of hours to wait before checking for new updates from the NVD.")
                 .build();
 
         final Option experimentalEnabled = Option.builder().longOpt(ARGUMENT.EXPERIMENTAL)
                 .desc("Enables the experimental analzers.")
+                .build();
+
+        final Option failOnCVSS = Option.builder().argName("score").hasArg().longOpt(ARGUMENT.FAIL_ON_CVSS)
+                .desc("Specifies if the build should be failed if a CVSS score above a specified level is identified. "
+                        + "The default is 11; since the CVSS scores are 0-10, by default the build will never fail.")
                 .build();
 
         //This is an option group because it can be specified more then once.
@@ -305,8 +314,10 @@ public final class CliParser {
                 .addOption(props)
                 .addOption(verboseLog)
                 .addOption(suppressionFile)
+                .addOption(hintsFile)
                 .addOption(cveValidForHours)
-                .addOption(experimentalEnabled);
+                .addOption(experimentalEnabled)
+                .addOption(failOnCVSS);
     }
 
     /**
@@ -426,6 +437,11 @@ public final class CliParser {
         final Option disableCmakeAnalyzer = Option.builder().longOpt(ARGUMENT.DISABLE_CMAKE)
                 .desc("Disable the Cmake Analyzer.").build();
 
+        final Option cocoapodsAnalyzerEnabled = Option.builder().longOpt(ARGUMENT.DISABLE_COCOAPODS)
+                .desc("Disable the CocoaPods Analyzer.").build();
+        final Option swiftPackageManagerAnalyzerEnabled = Option.builder().longOpt(ARGUMENT.DISABLE_SWIFT)
+                .desc("Disable the swift package Analyzer.").build();
+
         final Option disableCentralAnalyzer = Option.builder().longOpt(ARGUMENT.DISABLE_CENTRAL)
                 .desc("Disable the Central Analyzer. If this analyzer is disabled it is likely you also want to disable "
                         + "the Nexus Analyzer.").build();
@@ -470,6 +486,8 @@ public final class CliParser {
                 .addOption(disableNuspecAnalyzer)
                 .addOption(disableCentralAnalyzer)
                 .addOption(disableNexusAnalyzer)
+                .addOption(cocoapodsAnalyzerEnabled)
+                .addOption(swiftPackageManagerAnalyzerEnabled)
                 .addOption(Option.builder().longOpt(ARGUMENT.DISABLE_NODE_JS)
                         .desc("Disable the Node.js Package Analyzer.").build())
                 .addOption(nexusUrl)
@@ -688,6 +706,28 @@ public final class CliParser {
      */
     public boolean isNodeJsDisabled() {
         return (line != null) && line.hasOption(ARGUMENT.DISABLE_NODE_JS);
+    }
+
+    /**
+     * Returns true if the disableCocoapodsAnalyzer command line argument was
+     * specified.
+     *
+     * @return true if the disableCocoapodsAnalyzer command line argument was
+     * specified; otherwise false
+     */
+    public boolean isCocoapodsAnalyzerDisabled() {
+        return (line != null) && line.hasOption(ARGUMENT.DISABLE_COCOAPODS);
+    }
+
+    /**
+     * Returns true if the disableSwiftPackageManagerAnalyzer command line
+     * argument was specified.
+     *
+     * @return true if the disableSwiftPackageManagerAnalyzer command line
+     * argument was specified; otherwise false
+     */
+    public boolean isSwiftPackageAnalyzerDisabled() {
+        return (line != null) && line.hasOption(ARGUMENT.DISABLE_SWIFT);
     }
 
     /**
@@ -963,6 +1003,15 @@ public final class CliParser {
     }
 
     /**
+     * Returns the path to the hints file.
+     *
+     * @return the path to the hints file
+     */
+    public String getHintsFile() {
+        return line.getOptionValue(ARGUMENT.HINTS_FILE);
+    }
+
+    /**
      * <p>
      * Prints the manifest information to standard output.</p>
      * <ul><li>Implementation-Title: ${pom.name}</li>
@@ -1089,6 +1138,25 @@ public final class CliParser {
      */
     public boolean isExperimentalEnabled() {
         return line.hasOption(ARGUMENT.EXPERIMENTAL);
+    }
+
+    /**
+     * Returns the CVSS value to fail on.
+     *
+     * @return 11 if nothing is set. Otherwise it returns the int passed from
+     * the command line arg
+     */
+    public int getFailOnCVSS() {
+        if (line.hasOption(ARGUMENT.FAIL_ON_CVSS)) {
+            final String value = line.getOptionValue(ARGUMENT.FAIL_ON_CVSS);
+            try {
+                return Integer.parseInt(value);
+            } catch (NumberFormatException nfe) {
+                return 11;
+            }
+        } else {
+            return 11;
+        }
     }
 
     /**
@@ -1273,8 +1341,12 @@ public final class CliParser {
          */
         public static final String SUPPRESSION_FILE = "suppression";
         /**
-         * The CLI argument name for setting the location of the suppression
-         * file.
+         * The CLI argument name for setting the location of the hint file.
+         */
+        public static final String HINTS_FILE = "hints";
+        /**
+         * The CLI argument name for setting the number of hours to wait before
+         * checking for new updates from the NVD.
          */
         public static final String CVE_VALID_FOR_HOURS = "cveValidForHours";
         /**
@@ -1309,6 +1381,14 @@ public final class CliParser {
          * Disables the Cmake Analyzer.
          */
         public static final String DISABLE_CMAKE = "disableCmake";
+        /**
+         * Disables the cocoapods analyzer.
+         */
+        public static final String DISABLE_COCOAPODS = "disableCocoapodsAnalyzer";
+        /**
+         * Disables the swift package manager analyzer.
+         */
+        public static final String DISABLE_SWIFT = "disableSwiftPackageManagerAnalyzer";
         /**
          * Disables the Assembly Analyzer.
          */
@@ -1389,5 +1469,9 @@ public final class CliParser {
          * The CLI argument to enable the experimental analyzers.
          */
         private static final String EXPERIMENTAL = "enableExperimental";
+        /**
+         * The CLI argument to enable the experimental analyzers.
+         */
+        private static final String FAIL_ON_CVSS = "failOnCVSS";
     }
 }

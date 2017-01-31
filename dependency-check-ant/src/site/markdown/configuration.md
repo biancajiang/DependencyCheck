@@ -39,6 +39,7 @@ projectName           | The name of the project being scanned.                  
 reportFormat          | The report format to be generated (HTML, XML, VULN, ALL). This configuration option has no affect if using this within the Site plugin unless the externalReport is set to true.                   | HTML
 reportOutputDirectory | The location to write the report(s). Note, this is not used if generating the report as part of a `mvn site` build                                                                                 | 'target'
 suppressionFile       | The file path to the XML suppression file \- used to suppress [false positives](../general/suppression.html)                                                                                       | &nbsp;
+hintsFile             | The file path to the XML hints file \- used to resolve [false negatives](../general/hints.html)                                                                                       | &nbsp;
 proxyServer           | The Proxy Server; see the [proxy configuration](../data/proxy.html) page for more information.                                                                                                                        | &nbsp;
 proxyPort             | The Proxy Port.                                                                                                                                                                                    | &nbsp;
 proxyUsername         | Defines the proxy user name.                                                                                                                                                                       | &nbsp;
@@ -71,9 +72,13 @@ cmakeAnalyzerEnabled          | Sets whether the [experimental](../analyzers/ind
 autoconfAnalyzerEnabled       | Sets whether the [experimental](../analyzers/index.html) autoconf Analyzer should be used.                 | true
 composerAnalyzerEnabled       | Sets whether the [experimental](../analyzers/index.html) PHP Composer Lock File Analyzer should be used.   | true
 nodeAnalyzerEnabled           | Sets whether the [experimental](../analyzers/index.html) Node.js Analyzer should be used.                  | true
-nuspecAnalyzerEnabled         | Sets whether the .NET Nuget Nuspec Analyzer will be used.                         | true
-assemblyAnalyzerEnabled       | Sets whether the .NET Assembly Analyzer should be used.                           | true
-pathToMono                    | The path to Mono for .NET assembly analysis on non-windows systems.               | &nbsp;
+nuspecAnalyzerEnabled         | Sets whether the .NET Nuget Nuspec Analyzer will be used.                                                  | true
+cocoapodsAnalyzerEnabled      | Sets whether the [experimental](../analyzers/index.html) Cocoapods Analyzer should be used.                | true
+bundleAuditAnalyzerEnabled    | Sets whether the [experimental](../analyzers/index.html) Bundle Audit Analyzer should be used.             | true
+bundleAuditPath               | Sets the path to the bundle audit executable; only used if bundle audit analyzer is enabled and experimental analyzers are enabled.  | &nbsp;
+swiftPackageManagerAnalyzerEnabled | Sets whether the [experimental](../analyzers/index.html) Switft Package Analyzer should be used.      | true
+assemblyAnalyzerEnabled       | Sets whether the .NET Assembly Analyzer should be used.                                                    | true
+pathToMono                    | The path to Mono for .NET assembly analysis on non-windows systems.                                        | &nbsp;
 
 Advanced Configuration
 ====================

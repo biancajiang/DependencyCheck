@@ -19,6 +19,7 @@ package org.owasp.dependencycheck;
 
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -32,6 +33,7 @@ import org.owasp.dependencycheck.data.nvdcve.DatabaseException;
 import org.owasp.dependencycheck.data.nvdcve.DatabaseProperties;
 import org.owasp.dependencycheck.dependency.Dependency;
 import org.apache.tools.ant.DirectoryScanner;
+import org.owasp.dependencycheck.dependency.Vulnerability;
 import org.owasp.dependencycheck.reporting.ReportGenerator;
 import org.owasp.dependencycheck.utils.Settings;
 import org.slf4j.Logger;
@@ -160,8 +162,8 @@ public class App {
             try {
                 final String[] scanFiles = cli.getScanFiles();
                 if (scanFiles != null) {
-                    runScan(cli.getReportDirectory(), cli.getReportFormat(), cli.getProjectName(), scanFiles,
-                            cli.getExcludeList(), cli.getSymLinkDepth());
+                    exitCode = runScan(cli.getReportDirectory(), cli.getReportFormat(), cli.getProjectName(), scanFiles,
+                            cli.getExcludeList(), cli.getSymLinkDepth(), cli.getFailOnCVSS());
                 } else {
                     LOGGER.error("No scan files configured");
                 }
@@ -177,7 +179,7 @@ public class App {
             } catch (ExceptionCollection ex) {
                 if (ex.isFatal()) {
                     exitCode = -13;
-                    LOGGER.error("One or more fatal errors occured");
+                    LOGGER.error("One or more fatal errors occurred");
                 } else {
                     exitCode = -14;
                 }
@@ -202,6 +204,8 @@ public class App {
      * @param files the files/directories to scan
      * @param excludes the patterns for files/directories to exclude
      * @param symLinkDepth the depth that symbolic links will be followed
+     * @param cvssFailScore the score to fail on if a vulnerability is found
+     * @return the exit code if there was an error
      *
      * @throws InvalidScanPathException thrown if the path to scan starts with
      * "//"
@@ -212,9 +216,11 @@ public class App {
      * analysis; there may be multiple exceptions contained within the
      * collection.
      */
-    private void runScan(String reportDirectory, String outputFormat, String applicationName, String[] files,
-            String[] excludes, int symLinkDepth) throws InvalidScanPathException, DatabaseException, ExceptionCollection, ReportException {
+    private int runScan(String reportDirectory, String outputFormat, String applicationName, String[] files,
+            String[] excludes, int symLinkDepth, int cvssFailScore) throws InvalidScanPathException, DatabaseException,
+            ExceptionCollection, ReportException {
         Engine engine = null;
+        int retCode = 0;
         try {
             engine = new Engine();
             final List<String> antStylePaths = new ArrayList<String>();
@@ -301,12 +307,25 @@ public class App {
             if (exCol != null && exCol.getExceptions().size() > 0) {
                 throw exCol;
             }
+
+            //Set the exit code based on whether we found a high enough vulnerability
+            for (Dependency dep : dependencies) {
+                if (!dep.getVulnerabilities().isEmpty()) {
+                    for (Vulnerability vuln : dep.getVulnerabilities()) {
+                        LOGGER.debug("VULNERABILITY FOUND " + dep.getDisplayFileName());
+                        if (vuln.getCvssScore() > cvssFailScore) {
+                            retCode = 1;
+                        }
+                    }
+                }
+            }
+
+            return retCode;
         } finally {
             if (engine != null) {
                 engine.cleanup();
             }
         }
-
     }
 
     /**
@@ -347,6 +366,7 @@ public class App {
         final String dataDirectory = cli.getDataDirectory();
         final File propertiesFile = cli.getPropertiesFile();
         final String suppressionFile = cli.getSuppressionFile();
+        final String hintsFile = cli.getHintsFile();
         final String nexusUrl = cli.getNexusUrl();
         final String databaseDriverName = cli.getDatabaseDriverName();
         final String databaseDriverPath = cli.getDatabaseDriverPath();
@@ -394,6 +414,7 @@ public class App {
         Settings.setStringIfNotEmpty(Settings.KEYS.PROXY_PASSWORD, proxyPass);
         Settings.setStringIfNotEmpty(Settings.KEYS.CONNECTION_TIMEOUT, connectionTimeout);
         Settings.setStringIfNotEmpty(Settings.KEYS.SUPPRESSION_FILE, suppressionFile);
+        Settings.setStringIfNotEmpty(Settings.KEYS.HINTS_FILE, hintsFile);
         Settings.setIntIfNotNull(Settings.KEYS.CVE_CHECK_VALID_FOR_HOURS, cveValidForHours);
 
         //File Type Analyzer Settings
@@ -410,6 +431,8 @@ public class App {
         Settings.setBoolean(Settings.KEYS.ANALYZER_OPENSSL_ENABLED, !cli.isOpenSSLDisabled());
         Settings.setBoolean(Settings.KEYS.ANALYZER_COMPOSER_LOCK_ENABLED, !cli.isComposerDisabled());
         Settings.setBoolean(Settings.KEYS.ANALYZER_NODE_PACKAGE_ENABLED, !cli.isNodeJsDisabled());
+        Settings.setBoolean(Settings.KEYS.ANALYZER_SWIFT_PACKAGE_MANAGER_ENABLED, !cli.isSwiftPackageAnalyzerDisabled());
+        Settings.setBoolean(Settings.KEYS.ANALYZER_COCOAPODS_ENABLED, !cli.isCocoapodsAnalyzerDisabled());
         Settings.setBoolean(Settings.KEYS.ANALYZER_RUBY_GEMSPEC_ENABLED, !cli.isRubyGemspecDisabled());
         Settings.setBoolean(Settings.KEYS.ANALYZER_CENTRAL_ENABLED, !cli.isCentralDisabled());
         Settings.setBoolean(Settings.KEYS.ANALYZER_NEXUS_ENABLED, !cli.isNexusDisabled());
@@ -445,7 +468,7 @@ public class App {
         encoder.setPattern("%d %C:%L%n%-5level - %msg%n");
         encoder.setContext(context);
         encoder.start();
-        final FileAppender fa = new FileAppender();
+        final FileAppender<ILoggingEvent> fa = new FileAppender<ILoggingEvent>();
         fa.setAppend(true);
         fa.setEncoder(encoder);
         fa.setContext(context);

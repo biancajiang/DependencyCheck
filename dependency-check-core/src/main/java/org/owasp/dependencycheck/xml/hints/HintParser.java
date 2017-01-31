@@ -26,7 +26,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
+import org.owasp.dependencycheck.utils.XmlUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,12 +108,7 @@ public class HintParser {
         try {
             schemaStream = this.getClass().getClassLoader().getResourceAsStream(HINT_SCHEMA);
             final HintHandler handler = new HintHandler();
-            final SAXParserFactory factory = SAXParserFactory.newInstance();
-            factory.setNamespaceAware(true);
-            factory.setValidating(true);
-            final SAXParser saxParser = factory.newSAXParser();
-            saxParser.setProperty(HintParser.JAXP_SCHEMA_LANGUAGE, HintParser.W3C_XML_SCHEMA);
-            saxParser.setProperty(HintParser.JAXP_SCHEMA_SOURCE, new InputSource(schemaStream));
+            final SAXParser saxParser = XmlUtils.buildSecureSaxParser(schemaStream);
             final XMLReader xmlReader = saxParser.getXMLReader();
             xmlReader.setErrorHandler(new HintErrorHandler());
             xmlReader.setContentHandler(handler);

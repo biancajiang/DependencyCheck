@@ -22,12 +22,11 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathFactory;
-import org.owasp.dependencycheck.utils.InvalidSettingException;
-import org.owasp.dependencycheck.utils.Settings;
+
 import org.owasp.dependencycheck.utils.URLConnectionFactory;
+import org.owasp.dependencycheck.utils.XmlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
@@ -47,7 +46,7 @@ public class NexusSearch {
     /**
      * Whether to use the Proxy when making requests.
      */
-    private boolean useProxy;
+    private final boolean useProxy;
     /**
      * Used for logging.
      */
@@ -56,32 +55,26 @@ public class NexusSearch {
     /**
      * Creates a NexusSearch for the given repository URL.
      *
-     * @param rootURL the root URL of the repository on which searches should execute. full URL's are calculated relative to this
-     * URL, so it should end with a /
+     * @param rootURL the root URL of the repository on which searches should
+     * execute. full URL's are calculated relative to this URL, so it should end
+     * with a /
+     * @param useProxy flag indicating if the proxy settings should be used
      */
-    public NexusSearch(URL rootURL) {
+    public NexusSearch(URL rootURL, boolean useProxy) {
         this.rootURL = rootURL;
-        try {
-            if (null != Settings.getString(Settings.KEYS.PROXY_SERVER)
-                    && Settings.getBoolean(Settings.KEYS.ANALYZER_NEXUS_USES_PROXY)) {
-                useProxy = true;
-                LOGGER.debug("Using proxy");
-            } else {
-                useProxy = false;
-                LOGGER.debug("Not using proxy");
-            }
-        } catch (InvalidSettingException ise) {
-            useProxy = false;
-        }
+        this.useProxy = useProxy;
+        LOGGER.debug("Using proxy: {}", useProxy);
     }
 
     /**
-     * Searches the configured Nexus repository for the given sha1 hash. If the artifact is found, a <code>MavenArtifact</code> is
-     * populated with the coordinate information.
+     * Searches the configured Nexus repository for the given sha1 hash. If the
+     * artifact is found, a <code>MavenArtifact</code> is populated with the
+     * coordinate information.
      *
      * @param sha1 The SHA-1 hash string for which to search
      * @return the populated Maven coordinates
-     * @throws IOException if it's unable to connect to the specified repository or if the specified artifact is not found.
+     * @throws IOException if it's unable to connect to the specified repository
+     * or if the specified artifact is not found.
      */
     public MavenArtifact searchSha1(String sha1) throws IOException {
         if (null == sha1 || !sha1.matches("^[0-9A-Fa-f]{40}$")) {
@@ -106,57 +99,58 @@ public class NexusSearch {
         conn.addRequestProperty("Accept", "application/xml");
         conn.connect();
 
-        if (conn.getResponseCode() == 200) {
-            try {
-                final DocumentBuilder builder = DocumentBuilderFactory
-                        .newInstance().newDocumentBuilder();
-                final Document doc = builder.parse(conn.getInputStream());
-                final XPath xpath = XPathFactory.newInstance().newXPath();
-                final String groupId = xpath
-                        .evaluate(
-                                "/org.sonatype.nexus.rest.model.NexusArtifact/groupId",
-                                doc);
-                final String artifactId = xpath.evaluate(
-                        "/org.sonatype.nexus.rest.model.NexusArtifact/artifactId",
-                        doc);
-                final String version = xpath
-                        .evaluate(
-                                "/org.sonatype.nexus.rest.model.NexusArtifact/version",
-                                doc);
-                final String link = xpath
-                        .evaluate(
-                                "/org.sonatype.nexus.rest.model.NexusArtifact/artifactLink",
-                                doc);
-                final String pomLink = xpath
-                        .evaluate(
-                                "/org.sonatype.nexus.rest.model.NexusArtifact/pomLink",
-                                doc);
-                final MavenArtifact ma = new MavenArtifact(groupId, artifactId, version);
-                if (link != null && !link.isEmpty()) {
-                    ma.setArtifactUrl(link);
+        switch (conn.getResponseCode()) {
+            case 200:
+                try {
+                    final DocumentBuilder builder = XmlUtils.buildSecureDocumentBuilder();
+                    final Document doc = builder.parse(conn.getInputStream());
+                    final XPath xpath = XPathFactory.newInstance().newXPath();
+                    final String groupId = xpath
+                            .evaluate(
+                                    "/org.sonatype.nexus.rest.model.NexusArtifact/groupId",
+                                    doc);
+                    final String artifactId = xpath.evaluate(
+                            "/org.sonatype.nexus.rest.model.NexusArtifact/artifactId",
+                            doc);
+                    final String version = xpath
+                            .evaluate(
+                                    "/org.sonatype.nexus.rest.model.NexusArtifact/version",
+                                    doc);
+                    final String link = xpath
+                            .evaluate(
+                                    "/org.sonatype.nexus.rest.model.NexusArtifact/artifactLink",
+                                    doc);
+                    final String pomLink = xpath
+                            .evaluate(
+                                    "/org.sonatype.nexus.rest.model.NexusArtifact/pomLink",
+                                    doc);
+                    final MavenArtifact ma = new MavenArtifact(groupId, artifactId, version);
+                    if (link != null && !link.isEmpty()) {
+                        ma.setArtifactUrl(link);
+                    }
+                    if (pomLink != null && !pomLink.isEmpty()) {
+                        ma.setPomUrl(pomLink);
+                    }
+                    return ma;
+                } catch (Throwable e) {
+                    // Anything else is jacked-up XML stuff that we really can't recover
+                    // from well
+                    throw new IOException(e.getMessage(), e);
                 }
-                if (pomLink != null && !pomLink.isEmpty()) {
-                    ma.setPomUrl(pomLink);
-                }
-                return ma;
-            } catch (Throwable e) {
-                // Anything else is jacked-up XML stuff that we really can't recover
-                // from well
-                throw new IOException(e.getMessage(), e);
-            }
-        } else if (conn.getResponseCode() == 404) {
-            throw new FileNotFoundException("Artifact not found in Nexus");
-        } else {
-            LOGGER.debug("Could not connect to Nexus received response code: {} {}",
-                    conn.getResponseCode(), conn.getResponseMessage());
-            throw new IOException("Could not connect to Nexus");
+            case 404:
+                throw new FileNotFoundException("Artifact not found in Nexus");
+            default:
+                LOGGER.debug("Could not connect to Nexus received response code: {} {}",
+                        conn.getResponseCode(), conn.getResponseMessage());
+                throw new IOException("Could not connect to Nexus");
         }
     }
 
     /**
      * Do a preflight request to see if the repository is actually working.
      *
-     * @return whether the repository is listening and returns the /status URL correctly
+     * @return whether the repository is listening and returns the /status URL
+     * correctly
      */
     public boolean preflightRequest() {
         HttpURLConnection conn;
@@ -169,7 +163,8 @@ public class NexusSearch {
                 LOGGER.warn("Expected 200 result from Nexus, got {}", conn.getResponseCode());
                 return false;
             }
-            final DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            final DocumentBuilder builder = XmlUtils.buildSecureDocumentBuilder();
+
             final Document doc = builder.parse(conn.getInputStream());
             if (!"status".equals(doc.getDocumentElement().getNodeName())) {
                 LOGGER.warn("Expected root node name of status, got {}", doc.getDocumentElement().getNodeName());

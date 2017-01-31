@@ -51,7 +51,7 @@ import org.xml.sax.SAXException;
  *
  * @author Jeremy Long
  */
-public class HintAnalyzer extends AbstractAnalyzer implements Analyzer {
+public class HintAnalyzer extends AbstractAnalyzer {
 
     //<editor-fold defaultstate="collapsed" desc="All standard implementation details of Analyzer">
     /**
@@ -82,6 +82,16 @@ public class HintAnalyzer extends AbstractAnalyzer implements Analyzer {
     public AnalysisPhase getAnalysisPhase() {
         return ANALYSIS_PHASE;
     }
+    /**
+     * <p>
+     * Returns the setting key to determine if the analyzer is enabled.</p>
+     *
+     * @return the key for the analyzer's enabled property
+     */
+    @Override
+    protected String getAnalyzerEnabledSettingKey() {
+        return Settings.KEYS.ANALYZER_HINT_ENABLED;
+    }
 
     /**
      * The initialize method does nothing for this Analyzer.
@@ -89,9 +99,8 @@ public class HintAnalyzer extends AbstractAnalyzer implements Analyzer {
      * @throws InitializationException thrown if there is an exception
      */
     @Override
-    public void initialize() throws InitializationException {
+    public void initializeAnalyzer() throws InitializationException {
         try {
-            super.initialize();
             loadHintRules();
         } catch (HintParseException ex) {
             LOGGER.debug("Unable to parse hint file", ex);
@@ -123,7 +132,7 @@ public class HintAnalyzer extends AbstractAnalyzer implements Analyzer {
      * the dependency.
      */
     @Override
-    public void analyze(Dependency dependency, Engine engine) throws AnalysisException {
+    protected void analyzeDependency(Dependency dependency, Engine engine) throws AnalysisException {
         for (HintRule hint : hints.getHintRules()) {
             boolean shouldAdd = false;
             for (Evidence given : hint.getGivenVendor()) {
@@ -323,7 +332,7 @@ public class HintAnalyzer extends AbstractAnalyzer implements Analyzer {
                             try {
                                 org.apache.commons.io.FileUtils.copyInputStreamToFile(fromClasspath, file);
                             } catch (IOException ex) {
-                                throw new HintParseException("Unable to locate suppressions file in classpath", ex);
+                                throw new HintParseException("Unable to locate hints file in classpath", ex);
                             }
                         }
                     } finally {

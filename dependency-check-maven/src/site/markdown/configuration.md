@@ -12,21 +12,23 @@ Configuration
 ====================
 The following properties can be set on the dependency-check-maven plugin.
 
-Property             | Description                        | Default Value
----------------------|------------------------------------|------------------
-autoUpdate           | Sets whether auto-updating of the NVD CVE/CPE data is enabled. It is not recommended that this be turned to false. | true
-cveValidForHours     | Sets the number of hours to wait before checking for new updates from the NVD.                                     | 4
-failBuildOnCVSS      | Specifies if the build should be failed if a CVSS score above a specified level is identified. The default is 11 which means since the CVSS scores are 0-10, by default the build will never fail.         | 11
-failOnError          | Whether the build should fail if there is an error executing the dependency-check analysis | true
-format               | The report format to be generated (HTML, XML, VULN, ALL). This configuration option has no affect if using this within the Site plugin unless the externalReport is set to true. | HTML
-name                 | The name of the report in the site | dependency-check or dependency-check:aggregate
-outputDirectory      | The location to write the report(s). Note, this is not used if generating the report as part of a `mvn site` build | 'target'
-skip                 | Skips the dependency-check analysis                       | false
-skipTestScope        | Skip analysis for artifacts with Test Scope               | true
-skipProvidedScope    | Skip analysis for artifacts with Provided Scope           | false
-skipRuntimeScope     | Skip analysis for artifacts with Runtime Scope            | false
-suppressionFile      | The file path to the XML suppression file \- used to suppress [false positives](../general/suppression.html) | &nbsp;
-enableExperimental   | Enable the [experimental analyzers](../analyzers/index.html). If not enabled the experimental analyzers (see below) will not be loaded or used. | false
+Property                    | Description                        | Default Value
+----------------------------|------------------------------------|------------------
+autoUpdate                  | Sets whether auto-updating of the NVD CVE/CPE data is enabled. It is not recommended that this be turned to false. | true
+cveValidForHours            | Sets the number of hours to wait before checking for new updates from the NVD.                                     | 4
+failBuildOnCVSS             | Specifies if the build should be failed if a CVSS score above a specified level is identified. The default is 11 which means since the CVSS scores are 0-10, by default the build will never fail. | 11
+failBuildOnAnyVulnerability | Specific that if any vulnerability is identified, the build will fail. | false
+failOnError                 | Whether the build should fail if there is an error executing the dependency-check analysis. | true
+format                      | The report format to be generated (HTML, XML, VULN, ALL). This configuration option has no affect if using this within the Site plugin unless the externalReport is set to true. | HTML
+name                        | The name of the report in the site. | dependency-check or dependency-check:aggregate
+outputDirectory             | The location to write the report(s). Note, this is not used if generating the report as part of a `mvn site` build. | 'target'
+skip                        | Skips the dependency-check analysis.                       | false
+skipTestScope               | Skip analysis for artifacts with Test Scope.               | true
+skipProvidedScope           | Skip analysis for artifacts with Provided Scope.           | false
+skipRuntimeScope            | Skip analysis for artifacts with Runtime Scope.            | false
+suppressionFile             | The file path to the XML suppression file \- used to suppress [false positives](../general/suppression.html). | &nbsp;
+hintsFile                   | The file path to the XML hints file \- used to resolve [false negatives](../general/hints.html).       | &nbsp;
+enableExperimental          | Enable the [experimental analyzers](../analyzers/index.html). If not enabled the experimental analyzers (see below) will not be loaded or used. | false
 
 Analyzer Configuration
 ====================
@@ -53,7 +55,11 @@ cmakeAnalyzerEnabled          | Sets whether the [experimental](../analyzers/ind
 autoconfAnalyzerEnabled       | Sets whether the [experimental](../analyzers/index.html) autoconf Analyzer should be used.                 | true
 composerAnalyzerEnabled       | Sets whether the [experimental](../analyzers/index.html) PHP Composer Lock File Analyzer should be used.   | true
 nodeAnalyzerEnabled           | Sets whether the [experimental](../analyzers/index.html) Node.js Analyzer should be used.                  | true
-nuspecAnalyzerEnabled         | Sets whether the .NET Nuget Nuspec Analyzer will be used.          | true
+nuspecAnalyzerEnabled         | Sets whether the .NET Nuget Nuspec Analyzer will be used.                                                  | true
+cocoapodsAnalyzerEnabled      | Sets whether the [experimental](../analyzers/index.html) Cocoapods Analyzer should be used.                | true
+bundleAuditAnalyzerEnabled    | Sets whether the [experimental](../analyzers/index.html) Bundle Audit Analyzer should be used.             | true
+bundleAuditPath               | Sets the path to the bundle audit executable; only used if bundle audit analyzer is enabled and experimental analyzers are enabled.  | &nbsp;
+swiftPackageManagerAnalyzerEnabled | Sets whether the [experimental](../analyzers/index.html) Switft Package Analyzer should be used.             | true
 assemblyAnalyzerEnabled       | Sets whether the .NET Assembly Analyzer should be used.            | true
 pathToMono                    | The path to Mono for .NET assembly analysis on non-windows systems.       | &nbsp;
 

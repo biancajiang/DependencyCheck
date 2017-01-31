@@ -11,6 +11,7 @@ Short  | Argument&nbsp;Name&nbsp;&nbsp; | Parameter       | Description | Requir
        | \-\-symLink           | \<depth\>       | The depth that symbolic links will be followed; the default is 0 meaning symbolic links will not be followed. | Optional
  \-o   | \-\-out               | \<path\>        | The folder to write reports to. This defaults to the current directory. If the format is not set to ALL one could specify a specific file name. | Optional
  \-f   | \-\-format            | \<format\>      | The output format to write to (XML, HTML, VULN, ALL). The default is HTML. | Required
+       | \-\-failOnCvss        | \<score\>       | If the score set between 0 and 10 the exit code from dependency-check will indicate if a vulnerability with a CVSS score equal to or higher was identified. | Optional
  \-l   | \-\-log               | \<file\>        | The file path to write verbose logging information. | Optional
  \-n   | \-\-noupdate          |                 | Disables the automatic updating of the CPE data. | Optional
        | \-\-suppression       | \<file\>        | The file path to the suppression XML file; used to suppress [false positives](../general/suppression.html). | Optional
@@ -34,13 +35,15 @@ Short  | Argument&nbsp;Name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Paramete
        | \-\-disablePyPkg      |                 | Sets whether the [experimental](../analyzers/index.html) Python Package Analyzer will be used.                           | false
        | \-\-disableNodeJS     |                 | Sets whether the [experimental](../analyzers/index.html) Node.js Package Analyzer will be used.                          | false
        | \-\-disableRubygems   |                 | Sets whether the [experimental](../analyzers/index.html) Ruby Gemspec Analyzer will be used.                             | false
-       | \-\-disableBundleAudit |               | Sets whether the [experimental](../analyzers/index.html) Ruby Bundler Audit Analyzer will be used.                             | false
+       | \-\-disableBundleAudit |                | Sets whether the [experimental](../analyzers/index.html) Ruby Bundler Audit Analyzer will be used.                       | false
+       | \-\-disableCocoapodsAnalyzer |          | Sets whether the [experimental](../analyzers/index.html) Cocoapods Analyzer will be used.                                | false
+       | \-\-disableSwiftPackageManagerAnalyzer | | Sets whether the [experimental](../analyzers/index.html) Swift Package Manager Analyzer will be used.                   | false
        | \-\-disableAutoconf   |                 | Sets whether the [experimental](../analyzers/index.html) Autoconf Analyzer will be used.                                 | false
-       | \-\-disableOpenSSL    |                 | Sets whether the OpenSSL Analyzer will be used.                                  | false
+       | \-\-disableOpenSSL    |                 | Sets whether the OpenSSL Analyzer will be used.                                                                          | false
        | \-\-disableCmake      |                 | Sets whether the [experimental](../analyzers/index.html) Cmake Analyzer will be disabled.                                | false
-       | \-\-disableArchive    |                 | Sets whether the Archive Analyzer will be disabled.                              | false
+       | \-\-disableArchive    |                 | Sets whether the Archive Analyzer will be disabled.                                                                      | false
        | \-\-zipExtensions     | \<strings\>     | A comma-separated list of additional file extensions to be treated like a ZIP file, the contents will be extracted and analyzed. | &nbsp;
-       | \-\-disableJar        |                 | Sets whether the Jar Analyzer will be disabled.                                  | false
+       | \-\-disableJar        |                 | Sets whether the Jar Analyzer will be disabled.                                                                          | false
        | \-\-disableComposer   |                 | Sets whether the [experimental](../analyzers/index.html) PHP Composer Lock File Analyzer will be disabled.               | false
        | \-\-disableCentral    |                 | Sets whether the Central Analyzer will be used. **Disabling this analyzer is not recommended as it could lead to false negatives (e.g. libraries that have vulnerabilities may not be reported correctly).** If this analyzer is being disabled there is a good chance you also want to disable the Nexus Analyzer. | false
        | \-\-disableNexus      |                 | Sets whether the Nexus Analyzer will be used. Note, this has been superceded by the Central Analyzer. However, you can configure the Nexus URL to utilize an internally hosted Nexus Pro server. | false

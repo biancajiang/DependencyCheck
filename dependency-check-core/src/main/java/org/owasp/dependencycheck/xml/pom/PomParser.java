@@ -26,7 +26,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
+import org.owasp.dependencycheck.utils.XmlUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,10 +47,12 @@ public class PomParser {
     private static final Logger LOGGER = LoggerFactory.getLogger(PomParser.class);
 
     /**
-     * Parses the given xml file and returns a Model object containing only the fields dependency-check requires.
+     * Parses the given xml file and returns a Model object containing only the
+     * fields dependency-check requires.
      *
      * @param file a pom.xml
-     * @return a Model object containing only the fields dependency-check requires
+     * @return a Model object containing only the fields dependency-check
+     * requires
      * @throws PomParseException thrown if the xml file cannot be parsed
      */
     public Model parse(File file) throws PomParseException {
@@ -73,7 +75,8 @@ public class PomParser {
     }
 
     /**
-     * Parses the given XML file and returns a Model object containing only the fields dependency-check requires.
+     * Parses the given XML file and returns a Model object containing only the
+     * fields dependency-check requires.
      *
      * @param inputStream an InputStream containing suppression rues
      * @return a list of suppression rules
@@ -82,19 +85,12 @@ public class PomParser {
     public Model parse(InputStream inputStream) throws PomParseException {
         try {
             final PomHandler handler = new PomHandler();
-            final SAXParserFactory factory = SAXParserFactory.newInstance();
-//            factory.setNamespaceAware(true);
-//            factory.setValidating(true);
-            final SAXParser saxParser = factory.newSAXParser();
+            final SAXParser saxParser = XmlUtils.buildSecureSaxParser();
             final XMLReader xmlReader = saxParser.getXMLReader();
             xmlReader.setContentHandler(handler);
-
             final Reader reader = new InputStreamReader(inputStream, "UTF-8");
             final InputSource in = new InputSource(reader);
-            //in.setEncoding("UTF-8");
-
             xmlReader.parse(in);
-
             return handler.getModel();
         } catch (ParserConfigurationException ex) {
             LOGGER.debug("", ex);

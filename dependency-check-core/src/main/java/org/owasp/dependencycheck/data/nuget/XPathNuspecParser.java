@@ -18,10 +18,11 @@
 package org.owasp.dependencycheck.data.nuget;
 
 import java.io.InputStream;
-import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.DocumentBuilder;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
+import org.owasp.dependencycheck.utils.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 
@@ -36,7 +37,8 @@ public class XPathNuspecParser implements NuspecParser {
      * Gets the string value of a node or null if it's not present
      *
      * @param n the node to test
-     * @return the string content of the node, or null if the node itself is null
+     * @return the string content of the node, or null if the node itself is
+     * null
      */
     private String getOrNull(Node n) {
         if (n != null) {
@@ -56,7 +58,9 @@ public class XPathNuspecParser implements NuspecParser {
     @Override
     public NugetPackage parse(InputStream stream) throws NuspecParseException {
         try {
-            final Document d = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(stream);
+            final DocumentBuilder db = XmlUtils.buildSecureDocumentBuilder();
+            final Document d = db.parse(stream);
+
             final XPath xpath = XPathFactory.newInstance().newXPath();
             final NugetPackage nuspec = new NugetPackage();
 

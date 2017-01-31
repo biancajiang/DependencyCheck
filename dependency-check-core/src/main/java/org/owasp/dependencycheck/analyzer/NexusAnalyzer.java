@@ -88,6 +88,10 @@ public class NexusAnalyzer extends AbstractFileTypeAnalyzer {
     private static final String SUPPORTED_EXTENSIONS = "jar";
 
     /**
+     * Whether or not the Nexus analyzer should use a proxy if configured.
+     */
+    private boolean useProxy;
+    /**
      * The Nexus Search to be set up for this analyzer.
      */
     private NexusSearch searcher;
@@ -144,10 +148,11 @@ public class NexusAnalyzer extends AbstractFileTypeAnalyzer {
         LOGGER.debug("Initializing Nexus Analyzer");
         LOGGER.debug("Nexus Analyzer enabled: {}", isEnabled());
         if (isEnabled()) {
+            useProxy = useProxy();
             final String searchUrl = Settings.getString(Settings.KEYS.ANALYZER_NEXUS_URL);
             LOGGER.debug("Nexus Analyzer URL: {}", searchUrl);
             try {
-                searcher = new NexusSearch(new URL(searchUrl));
+                searcher = new NexusSearch(new URL(searchUrl), useProxy);
                 if (!searcher.preflightRequest()) {
                     setEnabled(false);
                     throw new InitializationException("There was an issue getting Nexus status. Disabling analyzer.");
@@ -213,7 +218,7 @@ public class NexusAnalyzer extends AbstractFileTypeAnalyzer {
      * @throws AnalysisException when there's an exception during analysis
      */
     @Override
-    public void analyzeFileType(Dependency dependency, Engine engine) throws AnalysisException {
+    public void analyzeDependency(Dependency dependency, Engine engine) throws AnalysisException {
         if (!isEnabled()) {
             return;
         }
@@ -261,6 +266,21 @@ public class NexusAnalyzer extends AbstractFileTypeAnalyzer {
         } catch (IOException ioe) {
             //dependency.addAnalysisException(new AnalysisException("Could not connect to repository", ioe));
             LOGGER.debug("Could not connect to nexus repository", ioe);
+        }
+    }
+
+    /**
+     * Determine if a proxy should be used.
+     *
+     * @return {@code true} if a proxy should be used
+     */
+    public static boolean useProxy() {
+        try {
+            return Settings.getString(Settings.KEYS.PROXY_SERVER) != null
+                    && Settings.getBoolean(Settings.KEYS.ANALYZER_NEXUS_USES_PROXY);
+        } catch (InvalidSettingException ise) {
+            LOGGER.warn("Failed to parse proxy settings.", ise);
+            return false;
         }
     }
 }

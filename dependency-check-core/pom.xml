@@ -20,7 +20,7 @@ Copyright (c) 2012 Jeremy Long. All Rights Reserved.
     <parent>
         <groupId>org.owasp</groupId>
         <artifactId>dependency-check-parent</artifactId>
-        <version>1.4.3</version>
+        <version>1.4.5</version>
     </parent>
 
     <artifactId>dependency-check-core</artifactId>
@@ -261,6 +261,10 @@ Copyright (c) 2012 Jeremy Long. All Rights Reserved.
     </reporting>
     <dependencies>
         <!-- Note, to stay compatible with Jenkins installations only JARs compiled to 1.6 can be used -->
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>annotations</artifactId>
@@ -575,15 +579,19 @@ Copyright (c) 2012 Jeremy Long. All Rights Reserved.
                 </plugins>
             </build>
         </profile>
-        <profile>
-            <!-- The following profile adds additional
-            dependencies that are only used during testing.
-            Additionally, these are only added when using "allTests" to
-            make the build slightly faster in most cases. -->
+        <!-- 
+            The following profile adds additional dependencies that are only 
+            used during testing.
+        
+            TODO move the following FP tests to a seperate invoker test in the
+            maven plugin project. Add checks against the XML to validate that
+            these do not report FP.
+        -->
+        <!--profile>
             <id>False Positive Tests</id>
             <activation>
                 <property>
-                    <name>allTests</name>
+                    <name>releaseTesting</name>
                 </property>
             </activation>
             <dependencies>
@@ -665,13 +673,6 @@ Copyright (c) 2012 Jeremy Long. All Rights Reserved.
                     <optional>true</optional>
                 </dependency>
                 <dependency>
-                    <groupId>org.springframework</groupId>
-                    <artifactId>spring-webmvc</artifactId>
-                    <version>3.2.12.RELEASE</version>
-                    <scope>test</scope>
-                    <optional>true</optional>
-                </dependency>
-                <dependency>
                     <groupId>com.google.code.gson</groupId>
                     <artifactId>gson</artifactId>
                     <version>2.3.1</version>
@@ -728,6 +729,6 @@ Copyright (c) 2012 Jeremy Long. All Rights Reserved.
                     <optional>true</optional>
                 </dependency>
             </dependencies>
-        </profile>
+        </profile-->
     </profiles>
 </project>

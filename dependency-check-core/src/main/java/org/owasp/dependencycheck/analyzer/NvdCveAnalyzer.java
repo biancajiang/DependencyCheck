@@ -28,15 +28,18 @@ import org.owasp.dependencycheck.dependency.Dependency;
 import org.owasp.dependencycheck.dependency.Identifier;
 import org.owasp.dependencycheck.dependency.Vulnerability;
 import org.owasp.dependencycheck.exception.InitializationException;
+import org.owasp.dependencycheck.utils.Settings;
 import org.slf4j.LoggerFactory;
 
 /**
- * NvdCveAnalyzer is a utility class that takes a project dependency and attempts to discern if there is an associated
- * CVEs. It uses the the identifiers found by other analyzers to lookup the CVE data.
+ * NvdCveAnalyzer is a utility class that takes a project dependency and
+ * attempts to discern if there is an associated CVEs. It uses the the
+ * identifiers found by other analyzers to lookup the CVE data.
  *
  * @author Jeremy Long
  */
-public class NvdCveAnalyzer implements Analyzer {
+public class NvdCveAnalyzer extends AbstractAnalyzer {
+
     /**
      * The Logger for use throughout the class
      */
@@ -56,7 +59,8 @@ public class NvdCveAnalyzer implements Analyzer {
      * @throws SQLException thrown when there is a SQL Exception
      * @throws IOException thrown when there is an IO Exception
      * @throws DatabaseException thrown when there is a database exceptions
-     * @throws ClassNotFoundException thrown if the h2 database driver cannot be loaded
+     * @throws ClassNotFoundException thrown if the h2 database driver cannot be
+     * loaded
      */
     public void open() throws SQLException, IOException, DatabaseException, ClassNotFoundException {
         cveDB = new CveDB();
@@ -67,7 +71,7 @@ public class NvdCveAnalyzer implements Analyzer {
      * Closes the data source.
      */
     @Override
-    public void close() {
+    public void closeAnalyzer() {
         cveDB.close();
         cveDB = null;
     }
@@ -95,14 +99,16 @@ public class NvdCveAnalyzer implements Analyzer {
     }
 
     /**
-     * Analyzes a dependency and attempts to determine if there are any CPE identifiers for this dependency.
+     * Analyzes a dependency and attempts to determine if there are any CPE
+     * identifiers for this dependency.
      *
      * @param dependency The Dependency to analyze
      * @param engine The analysis engine
-     * @throws AnalysisException thrown if there is an issue analyzing the dependency
+     * @throws AnalysisException thrown if there is an issue analyzing the
+     * dependency
      */
     @Override
-    public void analyze(Dependency dependency, Engine engine) throws AnalysisException {
+    protected void analyzeDependency(Dependency dependency, Engine engine) throws AnalysisException {
         for (Identifier id : dependency.getIdentifiers()) {
             if ("cpe".equals(id.getType())) {
                 try {
@@ -148,12 +154,24 @@ public class NvdCveAnalyzer implements Analyzer {
     }
 
     /**
-     * Opens the database used to gather NVD CVE data.
+     * <p>
+     * Returns the setting key to determine if the analyzer is enabled.</p>
      *
-     * @throws InitializationException is thrown if there is an issue opening the index.
+     * @return the key for the analyzer's enabled property
      */
     @Override
-    public void initialize() throws InitializationException {
+    protected String getAnalyzerEnabledSettingKey() {
+        return Settings.KEYS.ANALYZER_NVD_CVE_ENABLED;
+    }
+
+    /**
+     * Opens the database used to gather NVD CVE data.
+     *
+     * @throws InitializationException is thrown if there is an issue opening
+     * the index.
+     */
+    @Override
+    public void initializeAnalyzer() throws InitializationException {
         try {
             this.open();
         } catch (SQLException ex) {

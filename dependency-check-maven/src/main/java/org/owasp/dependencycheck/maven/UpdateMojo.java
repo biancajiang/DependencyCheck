@@ -23,6 +23,7 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.owasp.dependencycheck.Engine;
 import org.owasp.dependencycheck.data.nvdcve.DatabaseException;
 import org.owasp.dependencycheck.data.update.exception.UpdateException;
 import org.owasp.dependencycheck.utils.Settings;
@@ -38,7 +39,8 @@ import org.owasp.dependencycheck.utils.Settings;
         defaultPhase = LifecyclePhase.GENERATE_RESOURCES,
         threadSafe = false,
         requiresDependencyResolution = ResolutionScope.NONE,
-        requiresOnline = true
+        requiresOnline = true,
+        aggregator = true
 )
 public class UpdateMojo extends BaseDependencyCheckMojo {
 
@@ -63,21 +65,21 @@ public class UpdateMojo extends BaseDependencyCheckMojo {
      */
     @Override
     public void runCheck() throws MojoExecutionException, MojoFailureException {
-        MavenEngine engine = null;
+        Engine engine = null;
         try {
             engine = initializeEngine();
-            engine.update();
+            engine.doUpdates();
         } catch (DatabaseException ex) {
             if (getLog().isDebugEnabled()) {
                 getLog().debug("Database connection error", ex);
             }
-            final String msg = "An exception occured connecting to the local database. Please see the log file for more details.";
+            final String msg = "An exception occurred connecting to the local database. Please see the log file for more details.";
             if (this.isFailOnError()) {
                 throw new MojoExecutionException(msg, ex);
             }
             getLog().error(msg);
         } catch (UpdateException ex) {
-            final String msg = "An exception occured while downloading updates. Please see the log file for more details.";
+            final String msg = "An exception occurred while downloading updates. Please see the log file for more details.";
             if (this.isFailOnError()) {
                 throw new MojoExecutionException(msg, ex);
             }

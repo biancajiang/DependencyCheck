@@ -67,8 +67,7 @@ public abstract class AbstractSuppressionAnalyzer extends AbstractAnalyzer {
      * @throws InitializationException thrown if there is an exception
      */
     @Override
-    public void initialize() throws InitializationException {
-        super.initialize();
+    public void initializeAnalyzer() throws InitializationException {
         try {
             loadSuppressionData();
         } catch (SuppressionParseException ex) {
@@ -108,7 +107,8 @@ public abstract class AbstractSuppressionAnalyzer extends AbstractAnalyzer {
         final SuppressionParser parser = new SuppressionParser();
         File file = null;
         try {
-            rules = parser.parseSuppressionRules(this.getClass().getClassLoader().getResourceAsStream("dependencycheck-base-suppression.xml"));
+            final InputStream in = this.getClass().getClassLoader().getResourceAsStream("dependencycheck-base-suppression.xml");
+            rules = parser.parseSuppressionRules(in);
         } catch (SAXException ex) {
             throw new SuppressionParseException("Unable to parse the base suppression data file", ex);
         }
@@ -155,6 +155,11 @@ public abstract class AbstractSuppressionAnalyzer extends AbstractAnalyzer {
                 }
             }
             if (file != null) {
+                if (!file.exists()) {
+                    final String msg = String.format("Suppression file '%s' does not exists", file.getPath());
+                    LOGGER.warn(msg);
+                    throw new SuppressionParseException(msg);
+                }
                 try {
                     rules.addAll(parser.parseSuppressionRules(file));
                     LOGGER.debug("{} suppression rules were loaded.", rules.size());
@@ -168,6 +173,8 @@ public abstract class AbstractSuppressionAnalyzer extends AbstractAnalyzer {
             throwSuppressionParseException("Unable to fetch the configured suppression file", ex);
         } catch (MalformedURLException ex) {
             throwSuppressionParseException("Configured suppression file has an invalid URL", ex);
+        } catch (SuppressionParseException ex) {
+            throw ex;
         } catch (IOException ex) {
             throwSuppressionParseException("Unable to create temp file for suppressions", ex);
         } finally {

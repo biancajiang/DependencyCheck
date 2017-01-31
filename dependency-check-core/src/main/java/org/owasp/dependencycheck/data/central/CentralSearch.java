@@ -24,13 +24,13 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 import org.owasp.dependencycheck.data.nexus.MavenArtifact;
 import org.owasp.dependencycheck.utils.Settings;
 import org.owasp.dependencycheck.utils.URLConnectionFactory;
+import org.owasp.dependencycheck.utils.XmlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
@@ -51,7 +51,7 @@ public class CentralSearch {
     /**
      * Whether to use the Proxy when making requests
      */
-    private boolean useProxy;
+    private final boolean useProxy;
 
     /**
      * Used for logging.
@@ -110,8 +110,7 @@ public class CentralSearch {
         if (conn.getResponseCode() == 200) {
             boolean missing = false;
             try {
-                final DocumentBuilder builder = DocumentBuilderFactory
-                        .newInstance().newDocumentBuilder();
+                final DocumentBuilder builder = XmlUtils.buildSecureDocumentBuilder();
                 final Document doc = builder.parse(conn.getInputStream());
                 final XPath xpath = XPathFactory.newInstance().newXPath();
                 final String numFound = xpath.evaluate("/response/result/@numFound", doc);

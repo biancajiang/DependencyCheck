@@ -27,14 +27,14 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.context.Context;
 import org.apache.velocity.runtime.RuntimeConstants;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 import org.owasp.dependencycheck.analyzer.Analyzer;
 import org.owasp.dependencycheck.data.nvdcve.DatabaseProperties;
 import org.owasp.dependencycheck.dependency.Dependency;
@@ -103,13 +103,17 @@ public class ReportGenerator {
         context = createContext();
 
         velocityEngine.init();
-
-        final DateFormat dateFormat = new SimpleDateFormat("MMM d, yyyy 'at' HH:mm:ss z");
-        final DateFormat dateFormatXML = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
-        final Date d = new Date();
-        final String scanDate = dateFormat.format(d);
-        final String scanDateXML = dateFormatXML.format(d);
         final EscapeTool enc = new EscapeTool();
+
+        final DateTime dt = new DateTime();
+        final DateTimeFormatter dateFormat = DateTimeFormat.forPattern("MMM d, yyyy 'at' HH:mm:ss z");
+        final DateTimeFormatter dateFormatXML = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+
+//        final Date d = new Date();
+//        final DateFormat dateFormat = new SimpleDateFormat("MMM d, yyyy 'at' HH:mm:ss z");
+//        final DateFormat dateFormatXML = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+        final String scanDate = dateFormat.print(dt);
+        final String scanDateXML = dateFormatXML.print(dt);
 
         context.put("applicationName", applicationName);
         context.put("dependencies", dependencies);
@@ -167,7 +171,8 @@ public class ReportGenerator {
      *
      * @param outputDir the path where the reports should be written
      * @param format the format the report should be written in
-     * @throws ReportException is thrown if there is an error writing out the reports
+     * @throws ReportException is thrown if there is an error writing out the
+     * reports
      */
     public void generateReports(String outputDir, Format format) throws ReportException {
         if (format == Format.XML || format == Format.ALL) {

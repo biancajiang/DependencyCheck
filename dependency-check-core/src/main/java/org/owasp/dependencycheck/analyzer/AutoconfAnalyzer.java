@@ -31,8 +31,6 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.owasp.dependencycheck.exception.InitializationException;
@@ -156,7 +154,7 @@ public class AutoconfAnalyzer extends AbstractFileTypeAnalyzer {
     }
 
     @Override
-    protected void analyzeFileType(Dependency dependency, Engine engine)
+    protected void analyzeDependency(Dependency dependency, Engine engine)
             throws AnalysisException {
         final File actualFile = dependency.getActualFile();
         final String name = actualFile.getName();
@@ -178,11 +176,7 @@ public class AutoconfAnalyzer extends AbstractFileTypeAnalyzer {
                 }
             }
         } else {
-            // copy, alter and set in case some other thread is iterating over
-            final List<Dependency> dependencies = new ArrayList<Dependency>(
-                    engine.getDependencies());
-            dependencies.remove(dependency);
-            engine.setDependencies(dependencies);
+            engine.getDependencies().remove(dependency);
         }
     }
 

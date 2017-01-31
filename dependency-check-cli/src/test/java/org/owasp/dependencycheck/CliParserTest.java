@@ -116,6 +116,63 @@ public class CliParserTest {
     }
 
     /**
+     * Test of parse method with failOnCVSS without an argument
+     *
+     * @throws Exception thrown when an exception occurs.
+     */
+    @Test
+    public void testParse_failOnCVSSNoArg() throws Exception {
+
+        String[] args = {"--failOnCVSS"};
+
+        CliParser instance = new CliParser();
+        try {
+            instance.parse(args);
+        } catch (ParseException ex) {
+            Assert.assertTrue(ex.getMessage().contains("Missing argument"));
+        }
+        Assert.assertFalse(instance.isGetVersion());
+        Assert.assertFalse(instance.isGetHelp());
+        Assert.assertFalse(instance.isRunScan());
+    }
+
+    /**
+     * Test of parse method with failOnCVSS invalid argument. It should default to 11
+     *
+     * @throws Exception thrown when an exception occurs.
+     */
+    @Test
+    public void testParse_failOnCVSSInvalidArgument() throws Exception {
+
+        String[] args = {"--failOnCVSS","bad"};
+
+        CliParser instance = new CliParser();
+        instance.parse(args);
+        Assert.assertEquals("Default should be 11", 11, instance.getFailOnCVSS());
+        Assert.assertFalse(instance.isGetVersion());
+        Assert.assertFalse(instance.isGetHelp());
+        Assert.assertFalse(instance.isRunScan());
+    }
+
+    /**
+     * Test of parse method with failOnCVSS invalid argument. It should default to 11
+     *
+     * @throws Exception thrown when an exception occurs.
+     */
+    @Test
+    public void testParse_failOnCVSSValidArgument() throws Exception {
+
+        String[] args = {"--failOnCVSS","6"};
+
+        CliParser instance = new CliParser();
+        instance.parse(args);
+        Assert.assertEquals(6, instance.getFailOnCVSS());
+        Assert.assertFalse(instance.isGetVersion());
+        Assert.assertFalse(instance.isGetHelp());
+        Assert.assertFalse(instance.isRunScan());
+    }
+
+    /**
      * Test of parse method with jar and cpe args, of class CliParser.
      *
      * @throws Exception thrown when an exception occurs.
@@ -196,7 +253,7 @@ public class CliParserTest {
      */
     @Test
     public void testParse_scan_withFileExists() throws Exception {
-        File path = new File(this.getClass().getClassLoader().getResource("checkSumTest.file").getPath());
+        File path = new File(this.getClass().getClassLoader().getResource("checkSumTest.file").toURI().getPath());
         String[] args = {"-scan", path.getCanonicalPath(), "-out", "./", "-app", "test"};
 
         CliParser instance = new CliParser();

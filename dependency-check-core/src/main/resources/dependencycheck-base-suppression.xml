@@ -8,6 +8,8 @@
         <cpe>cpe:/a:mod_security:mod_security</cpe>
         <cpe>cpe:/a:springsource:spring_framework</cpe>
         <cpe>cpe:/a:vmware:springsource_spring_framework</cpe>
+        <cpe>cpe:/a:pivotal:spring_framework</cpe>
+        <cpe>cpe:/a:pivotal_software:spring_framework</cpe>
     </suppress>
     <suppress base="true">
         <notes><![CDATA[
@@ -18,6 +20,7 @@
         <cpe>cpe:/a:springsource:spring_framework</cpe>
         <cpe>cpe:/a:vmware:springsource_spring_framework</cpe>
         <cpe>cpe:/a:pivotal:spring_framework</cpe>
+        <cpe>cpe:/a:pivotal_software:spring_framework</cpe>
     </suppress>
     <suppress base="true">
         <notes><![CDATA[
@@ -333,6 +336,8 @@
         <filePath regex="true">.*\.(jar|ear|war|pom)</filePath>
         <cpe>cpe:/a:pam:pam</cpe>
         <cpe>cpe:/a:pam_ssh:pam_ssh</cpe>
+        <cpe>cpe:/a:sun:linux</cpe>
+        <cpe>cpe:/a:sun:sunos</cpe>
     </suppress>
     <suppress base="true">
         <notes><![CDATA[
@@ -426,5 +431,74 @@
         ]]></notes>
         <gav regex="true">com\.offbytwo\.jenkins:jenkins-client:.*</gav>
         <cpe>cpe:/a:jenkins:jenkins</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+        xstream false positives
+        ]]></notes>
+        <gav regex="true">^(?!com.thoughtworks).*xstream.*$</gav>
+        <cpe>cpe:/a:x-stream:xstream</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+        false positive per issue #582
+        ]]></notes>
+        <gav regex="true">^org\.glassfish\.jersey\.ext:jersey-proxy-client:.*$</gav>
+        <cpe>cpe:/a:oracle:oracle_client</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+        file name: smiley-http-proxy-servlet-1.7.jar
+        ]]></notes>
+        <gav regex="true">^org\.mitre\.dsmiley\.httpproxy:smiley-http-proxy-servlet:.*$</gav>
+        <cpe>cpe:/a:shttp:shttp</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+        This CVE is disputed by the vendor and is not considered an issue.
+        ]]></notes>
+        <filePath regex="true">.*</filePath>
+        <cve>CVE-2007-6059</cve>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+      file name: jackson-core-2.6.5.jar
+      ]]></notes>
+        <gav regex="true">com\.fasterxml\.jackson\.core:jackson.*</gav>
+        <cve>CVE-2016-3720</cve>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+      file name: jackson-core-2.6.5.jar
+      ]]></notes>
+        <gav regex="true">com\.fasterxml\.jackson\.dataformat:jackson(?!\-dataformat\-xml).*</gav>
+        <cve>CVE-2016-3720</cve>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+        False positives per issue #642
+        ]]></notes>
+        <gav regex="true">^org\.springframework\.boot:spring-boot.*$</gav>
+        <cpe>cpe:/a:pivotal_software:spring_framework</cpe>
+        <cpe>cpe:/a:pivotal:spring_framework</cpe>
+        <cpe>cpe:/a:vmware:springsource_spring_framework</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+        False positives per issue #642
+        ]]></notes>
+        <gav regex="true">^org\.springframework:spring-context:.*$</gav>
+        <cpe>cpe:/a:context_project:context</cpe>
+    </suppress>
+    
+    <suppress base="true">
+        <notes><![CDATA[
+        Node.js false positives per issues #512 and #510
+        ]]></notes>
+        <filePath regex="true">.*package\.json$</filePath>
+        <cpe>cpe:/a:file_project:file</cpe>
+        <cpe>cpe:/a:file:file</cpe>
+        <cpe>cpe:/a:shim:shim</cpe>
+        <cpe>cpe:/a:shim_project:shim</cpe>
     </suppress>
 </suppressions>

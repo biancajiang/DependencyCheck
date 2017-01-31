@@ -93,23 +93,9 @@ public class CMakeAnalyzer extends AbstractFileTypeAnalyzer {
             .addFilenames("CMakeLists.txt").build();
 
     /**
-     * A reference to SHA1 message digest.
-     */
-    private static MessageDigest sha1 = null;
-
-    static {
-        try {
-            sha1 = MessageDigest.getInstance("SHA1");
-        } catch (NoSuchAlgorithmException e) {
-            LOGGER.error(e.getMessage());
-        }
-    }
-
-    /**
      * Returns the name of the CMake analyzer.
      *
      * @return the name of the analyzer
-     *
      */
     @Override
     public String getName() {
@@ -137,13 +123,19 @@ public class CMakeAnalyzer extends AbstractFileTypeAnalyzer {
     }
 
     /**
-     * No-op initializer implementation.
+     * Initializes the analyzer.
      *
-     * @throws InitializationException never thrown
+     * @throws InitializationException thrown if an exception occurs getting an
+     * instance of SHA1
      */
     @Override
     protected void initializeFileTypeAnalyzer() throws InitializationException {
-        // Nothing to do here.
+        try {
+            getSha1MessageDigest();
+        } catch (IllegalStateException ex) {
+            setEnabled(false);
+            throw new InitializationException("Unable to create SHA1 MessageDigest", ex);
+        }
     }
 
     /**
@@ -155,7 +147,7 @@ public class CMakeAnalyzer extends AbstractFileTypeAnalyzer {
      * analyzing the dependency
      */
     @Override
-    protected void analyzeFileType(Dependency dependency, Engine engine)
+    protected void analyzeDependency(Dependency dependency, Engine engine)
             throws AnalysisException {
         final File file = dependency.getActualFile();
         final String parentName = file.getParentFile().getName();
@@ -229,6 +221,7 @@ public class CMakeAnalyzer extends AbstractFileTypeAnalyzer {
                 } catch (UnsupportedEncodingException ex) {
                     path = filePath.getBytes();
                 }
+                final MessageDigest sha1 = getSha1MessageDigest();
                 currentDep.setSha1sum(Checksum.getHex(sha1.digest(path)));
                 engine.getDependencies().add(currentDep);
             }
@@ -244,5 +237,19 @@ public class CMakeAnalyzer extends AbstractFileTypeAnalyzer {
     @Override
     protected String getAnalyzerEnabledSettingKey() {
         return Settings.KEYS.ANALYZER_CMAKE_ENABLED;
+    }
+
+    /**
+     * Returns the sha1 message digest.
+     *
+     * @return the sha1 message digest
+     */
+    private MessageDigest getSha1MessageDigest() {
+        try {
+            return MessageDigest.getInstance("SHA1");
+        } catch (NoSuchAlgorithmException e) {
+            LOGGER.error(e.getMessage());
+            throw new IllegalStateException("Failed to obtain the SHA1 message digest.", e);
+        }
     }
 }

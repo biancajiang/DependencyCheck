@@ -37,7 +37,6 @@ import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
@@ -46,6 +45,7 @@ import java.util.List;
 import javax.xml.parsers.ParserConfigurationException;
 import org.owasp.dependencycheck.exception.InitializationException;
 import org.apache.commons.lang3.SystemUtils;
+import org.owasp.dependencycheck.utils.XmlUtils;
 
 /**
  * Analyzer for getting company, product, and version information from a .NET
@@ -72,10 +72,6 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
      * The temp value for GrokAssembly.exe
      */
     private File grokAssemblyExe = null;
-    /**
-     * The DocumentBuilder for parsing the XML
-     */
-    private DocumentBuilder builder;
     /**
      * Logger
      */
@@ -110,7 +106,7 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
      * @throws AnalysisException if anything goes sideways
      */
     @Override
-    public void analyzeFileType(Dependency dependency, Engine engine)
+    public void analyzeDependency(Dependency dependency, Engine engine)
             throws AnalysisException {
         if (grokAssemblyExe == null) {
             LOGGER.warn("GrokAssembly didn't get deployed");
@@ -127,6 +123,7 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
         Document doc = null;
         try {
             final Process proc = pb.start();
+            final DocumentBuilder builder = XmlUtils.buildSecureDocumentBuilder();
 
             doc = builder.parse(proc.getInputStream());
 
@@ -176,10 +173,16 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
                         product, Confidence.HIGH));
             }
 
+        } catch (ParserConfigurationException pce) {
+            throw new AnalysisException("Error initializing the assembly analyzer", pce);
         } catch (IOException ioe) {
             throw new AnalysisException(ioe);
         } catch (SAXException saxe) {
-            throw new AnalysisException("Couldn't parse GrokAssembly result", saxe);
+            LOGGER.error("----------------------------------------------------");
+            LOGGER.error("Failed to read the Assembly Analyzer results. "
+                    + "On some systems mono-runtime and mono-devel need to be installed.");
+            LOGGER.error("----------------------------------------------------");
+            throw new AnalysisException("Couldn't parse Assembly Analzyzer results (GrokAssembly)", saxe);
         } catch (XPathExpressionException xpe) {
             // This shouldn't happen
             throw new AnalysisException(xpe);
@@ -233,9 +236,9 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
 
         // Now, need to see if GrokAssembly actually runs from this location.
         final List<String> args = buildArgumentList();
-        //TODO this creaes an "unreported" error - if someone doesn't look
+        //TODO this creates an "unreported" error - if someone doesn't look
         // at the command output this could easily be missed (especially in an
-        // Ant or Mmaven build.
+        // Ant or Maven build.
         //
         // We need to create a non-fatal warning error type that will
         // get added to the report.
@@ -244,8 +247,9 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
             setEnabled(false);
             LOGGER.error("----------------------------------------------------");
             LOGGER.error(".NET Assembly Analyzer could not be initialized and at least one "
-                    + "'exe' or 'dll' was scanned. The 'mono' executale could not be found on "
-                    + "the path; either disable the Assembly Analyzer or configure the path mono.");
+                    + "'exe' or 'dll' was scanned. The 'mono' executable could not be found on "
+                    + "the path; either disable the Assembly Analyzer or configure the path mono. "
+                    + "On some systems mono-runtime and mono-devel need to be installed.");
             LOGGER.error("----------------------------------------------------");
             return;
         }
@@ -255,7 +259,8 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
             // Try evacuating the error stream
             IOUtils.copy(p.getErrorStream(), NullOutputStream.NULL_OUTPUT_STREAM);
 
-            final Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(p.getInputStream());
+            final DocumentBuilder builder = XmlUtils.buildSecureDocumentBuilder();
+            final Document doc = builder.parse(p.getInputStream());
             final XPath xpath = XPathFactory.newInstance().newXPath();
             final String error = xpath.evaluate("/assembly/error", doc);
             if (p.waitFor() != 1 || error == null || error.isEmpty()) {
@@ -275,12 +280,6 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
             setEnabled(false);
             throw new InitializationException("An error occurred with the .NET AssemblyAnalyzer", e);
         }
-        try {
-            builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-        } catch (ParserConfigurationException ex) {
-            setEnabled(false);
-            throw new InitializationException("Error initializing the assembly analyzer", ex);
-        }
     }
 
     /**
@@ -289,8 +288,7 @@ public class AssemblyAnalyzer extends AbstractFileTypeAnalyzer {
      * @throws Exception thrown if there is a problem closing the analyzer
      */
     @Override
-    public void close() throws Exception {
-        super.close();
+    public void closeAnalyzer() throws Exception {
         try {
             if (grokAssemblyExe != null && !grokAssemblyExe.delete()) {
                 LOGGER.debug("Unable to delete temporary GrokAssembly.exe; attempting delete on exit");

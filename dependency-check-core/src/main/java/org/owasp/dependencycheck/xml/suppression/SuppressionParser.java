@@ -27,7 +27,7 @@ import java.io.Reader;
 import java.util.List;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
+import org.owasp.dependencycheck.utils.XmlUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,24 +47,9 @@ public class SuppressionParser {
      */
     private static final Logger LOGGER = LoggerFactory.getLogger(SuppressionParser.class);
     /**
-     * JAXP Schema Language. Source:
-     * http://docs.oracle.com/javase/tutorial/jaxp/sax/validation.html
-     */
-    public static final String JAXP_SCHEMA_LANGUAGE = "http://java.sun.com/xml/jaxp/properties/schemaLanguage";
-    /**
-     * W3C XML Schema. Source:
-     * http://docs.oracle.com/javase/tutorial/jaxp/sax/validation.html
-     */
-    public static final String W3C_XML_SCHEMA = "http://www.w3.org/2001/XMLSchema";
-    /**
-     * JAXP Schema Source. Source:
-     * http://docs.oracle.com/javase/tutorial/jaxp/sax/validation.html
-     */
-    public static final String JAXP_SCHEMA_SOURCE = "http://java.sun.com/xml/jaxp/properties/schemaSource";
-    /**
      * The suppression schema file location.
      */
-    private static final String SUPPRESSION_SCHEMA = "schema/dependency-suppression.1.1.xsd";
+    public static final String SUPPRESSION_SCHEMA = "schema/dependency-suppression.1.1.xsd";
     /**
      * The old suppression schema file location.
      */
@@ -99,7 +84,11 @@ public class SuppressionParser {
             } catch (FileNotFoundException ex1) {
                 throw new SuppressionParseException(ex);
             }
-            return parseOldSuppressionRules(fis);
+            try {
+                return parseSuppressionRules(fis, OLD_SUPPRESSION_SCHEMA);
+            } catch (SAXException ex1) {
+                throw new SuppressionParseException(ex);
+            }
         } finally {
             if (fis != null) {
                 try {
@@ -121,26 +110,31 @@ public class SuppressionParser {
      * @throws SAXException thrown if the XML cannot be parsed
      */
     public List<SuppressionRule> parseSuppressionRules(InputStream inputStream) throws SuppressionParseException, SAXException {
+        return parseSuppressionRules(inputStream, SUPPRESSION_SCHEMA);
+    }
+
+    /**
+     * Parses the given XML stream and returns a list of the suppression rules
+     * contained.
+     *
+     * @param inputStream an InputStream containing suppression rules
+     * @param schema the schema used to validate the XML stream
+     * @return a list of suppression rules
+     * @throws SuppressionParseException thrown if the XML cannot be parsed
+     * @throws SAXException thrown if the XML cannot be parsed
+     */
+    private List<SuppressionRule> parseSuppressionRules(InputStream inputStream, String schema) throws SuppressionParseException, SAXException {
         InputStream schemaStream = null;
         try {
-            schemaStream = this.getClass().getClassLoader().getResourceAsStream(SUPPRESSION_SCHEMA);
+            schemaStream = this.getClass().getClassLoader().getResourceAsStream(schema);
             final SuppressionHandler handler = new SuppressionHandler();
-            final SAXParserFactory factory = SAXParserFactory.newInstance();
-            factory.setNamespaceAware(true);
-            factory.setValidating(true);
-            final SAXParser saxParser = factory.newSAXParser();
-            saxParser.setProperty(SuppressionParser.JAXP_SCHEMA_LANGUAGE, SuppressionParser.W3C_XML_SCHEMA);
-            saxParser.setProperty(SuppressionParser.JAXP_SCHEMA_SOURCE, new InputSource(schemaStream));
+            final SAXParser saxParser = XmlUtils.buildSecureSaxParser(schemaStream);
             final XMLReader xmlReader = saxParser.getXMLReader();
             xmlReader.setErrorHandler(new SuppressionErrorHandler());
             xmlReader.setContentHandler(handler);
-
             final Reader reader = new InputStreamReader(inputStream, "UTF-8");
             final InputSource in = new InputSource(reader);
-            //in.setEncoding("UTF-8");
-
             xmlReader.parse(in);
-
             return handler.getSuppressionRules();
         } catch (ParserConfigurationException ex) {
             LOGGER.debug("", ex);
@@ -164,58 +158,6 @@ public class SuppressionParser {
                     schemaStream.close();
                 } catch (IOException ex) {
                     LOGGER.debug("Error closing suppression file stream", ex);
-                }
-            }
-        }
-    }
-
-    /**
-     * Parses the given XML stream and returns a list of the suppression rules
-     * contained.
-     *
-     * @param inputStream an InputStream containing suppression rues
-     * @return a list of suppression rules
-     * @throws SuppressionParseException if the XML cannot be parsed
-     */
-    private List<SuppressionRule> parseOldSuppressionRules(InputStream inputStream) throws SuppressionParseException {
-        InputStream schemaStream = null;
-        try {
-            schemaStream = this.getClass().getClassLoader().getResourceAsStream(OLD_SUPPRESSION_SCHEMA);
-            final SuppressionHandler handler = new SuppressionHandler();
-            final SAXParserFactory factory = SAXParserFactory.newInstance();
-            factory.setNamespaceAware(true);
-            factory.setValidating(true);
-            final SAXParser saxParser = factory.newSAXParser();
-            saxParser.setProperty(SuppressionParser.JAXP_SCHEMA_LANGUAGE, SuppressionParser.W3C_XML_SCHEMA);
-            saxParser.setProperty(SuppressionParser.JAXP_SCHEMA_SOURCE, new InputSource(schemaStream));
-            final XMLReader xmlReader = saxParser.getXMLReader();
-            xmlReader.setErrorHandler(new SuppressionErrorHandler());
-            xmlReader.setContentHandler(handler);
-
-            final Reader reader = new InputStreamReader(inputStream, "UTF-8");
-            final InputSource in = new InputSource(reader);
-
-            xmlReader.parse(in);
-
-            return handler.getSuppressionRules();
-        } catch (ParserConfigurationException ex) {
-            LOGGER.debug("", ex);
-            throw new SuppressionParseException(ex);
-        } catch (SAXException ex) {
-            LOGGER.debug("", ex);
-            throw new SuppressionParseException(ex);
-        } catch (FileNotFoundException ex) {
-            LOGGER.debug("", ex);
-            throw new SuppressionParseException(ex);
-        } catch (IOException ex) {
-            LOGGER.debug("", ex);
-            throw new SuppressionParseException(ex);
-        } finally {
-            if (schemaStream != null) {
-                try {
-                    schemaStream.close();
-                } catch (IOException ex) {
-                    LOGGER.debug("Error closing old suppression file stream", ex);
                 }
             }
         }

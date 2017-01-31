@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.builder.CompareToBuilder;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.CorruptIndexException;
@@ -49,6 +50,7 @@ import org.owasp.dependencycheck.dependency.VulnerableSoftware;
 import org.owasp.dependencycheck.exception.InitializationException;
 import org.owasp.dependencycheck.utils.DependencyVersion;
 import org.owasp.dependencycheck.utils.DependencyVersionUtil;
+import org.owasp.dependencycheck.utils.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,7 +61,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author Jeremy Long
  */
-public class CPEAnalyzer implements Analyzer {
+public class CPEAnalyzer extends AbstractAnalyzer {
 
     /**
      * The Logger.
@@ -121,7 +123,14 @@ public class CPEAnalyzer implements Analyzer {
     public AnalysisPhase getAnalysisPhase() {
         return AnalysisPhase.IDENTIFIER_ANALYSIS;
     }
-
+    /**
+     * The default is to support parallel processing.
+     * @return false
+     */
+    @Override
+    public boolean supportsParallelProcessing() {
+        return false;
+    }
     /**
      * Creates the CPE Lucene Index.
      *
@@ -129,7 +138,7 @@ public class CPEAnalyzer implements Analyzer {
      * the index.
      */
     @Override
-    public void initialize() throws InitializationException {
+    public void initializeAnalyzer() throws InitializationException {
         try {
             this.open();
         } catch (IOException ex) {
@@ -155,10 +164,10 @@ public class CPEAnalyzer implements Analyzer {
             cve.open();
             cpe = CpeMemoryIndex.getInstance();
             try {
-                LOGGER.info("Creating the CPE Index");
                 final long creationStart = System.currentTimeMillis();
                 cpe.open(cve);
-                LOGGER.info("CPE Index Created ({} ms)", System.currentTimeMillis() - creationStart);
+                final long creationSeconds = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - creationStart);
+                LOGGER.info("Created CPE Index ({} seconds)", creationSeconds);
             } catch (IndexException ex) {
                 LOGGER.debug("IndexException", ex);
                 throw new DatabaseException(ex);
@@ -170,7 +179,7 @@ public class CPEAnalyzer implements Analyzer {
      * Closes the data sources.
      */
     @Override
-    public void close() {
+    public void closeAnalyzer() {
         if (cpe != null) {
             cpe.close();
             cpe = null;
@@ -514,7 +523,7 @@ public class CPEAnalyzer implements Analyzer {
      * dependency.
      */
     @Override
-    public synchronized void analyze(Dependency dependency, Engine engine) throws AnalysisException {
+    protected synchronized void analyzeDependency(Dependency dependency, Engine engine) throws AnalysisException {
         try {
             determineCPE(dependency);
         } catch (CorruptIndexException ex) {
@@ -625,6 +634,17 @@ public class CPEAnalyzer implements Analyzer {
             }
         }
         return identifierAdded;
+    }
+
+    /**
+     * <p>
+     * Returns the setting key to determine if the analyzer is enabled.</p>
+     *
+     * @return the key for the analyzer's enabled property
+     */
+    @Override
+    protected String getAnalyzerEnabledSettingKey() {
+        return Settings.KEYS.ANALYZER_CPE_ENABLED;
     }
 
     /**
@@ -807,16 +827,6 @@ public class CPEAnalyzer implements Analyzer {
                     .append(evidenceConfidence, o.evidenceConfidence)
                     .append(identifier, o.identifier)
                     .toComparison();
-            /*
-            int conf = this.confidence.compareTo(o.confidence);
-            if (conf == 0) {
-                conf = this.evidenceConfidence.compareTo(o.evidenceConfidence);
-                if (conf == 0) {
-                    conf = identifier.compareTo(o.identifier);
-                }
-            }
-            return conf;
-             */
         }
     }
 }

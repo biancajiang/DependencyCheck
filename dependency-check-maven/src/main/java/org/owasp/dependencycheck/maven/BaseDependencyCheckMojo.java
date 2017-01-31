@@ -19,7 +19,6 @@ package org.owasp.dependencycheck.maven;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -49,6 +48,7 @@ import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
+import org.owasp.dependencycheck.Engine;
 import org.owasp.dependencycheck.data.nexus.MavenArtifact;
 import org.owasp.dependencycheck.data.nvdcve.CveDB;
 import org.owasp.dependencycheck.data.nvdcve.DatabaseException;
@@ -60,7 +60,6 @@ import org.owasp.dependencycheck.dependency.Vulnerability;
 import org.owasp.dependencycheck.exception.ExceptionCollection;
 import org.owasp.dependencycheck.exception.ReportException;
 import org.owasp.dependencycheck.reporting.ReportGenerator;
-import org.owasp.dependencycheck.utils.ExpectedOjectInputStream;
 import org.owasp.dependencycheck.utils.Settings;
 import org.sonatype.plexus.components.sec.dispatcher.DefaultSecDispatcher;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
@@ -158,6 +157,12 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
     @Parameter(property = "failBuildOnCVSS", defaultValue = "11", required = true)
     private float failBuildOnCVSS = 11;
     /**
+     * Fail the build if any dependency has a vulnerability listed.
+     */
+    @SuppressWarnings("CanBeFinal")
+    @Parameter(property = "failBuildOnAnyVulnerability", defaultValue = "false", required = true)
+    private boolean failBuildOnAnyVulnerability = false;
+    /**
      * Sets whether auto-updating of the NVD CVE/CPE data is enabled. It is not
      * recommended that this be turned to false. Default is true.
      */
@@ -206,6 +211,13 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
      */
     @Parameter(property = "suppressionFile", defaultValue = "", required = false)
     private String suppressionFile;
+
+    /**
+     * The path to the hints file.
+     */
+    @Parameter(property = "hintsFile", defaultValue = "", required = false)
+    private String hintsFile;
+
     /**
      * Flag indicating whether or not to show a summary in the output.
      */
@@ -289,6 +301,30 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
      */
     @Parameter(property = "nexusAnalyzerEnabled", required = false)
     private Boolean nexusAnalyzerEnabled;
+
+    /**
+     * Whether or not the Ruby Bundle Audit Analyzer is enabled.
+     */
+    @Parameter(property = "bundleAuditAnalyzerEnabled", required = false)
+    private Boolean bundleAuditAnalyzerEnabled;
+
+    /**
+     * Sets the path for the bundle-audit binary.
+     */
+    @Parameter(property = "bundleAuditPath", defaultValue = "", required = false)
+    private String bundleAuditPath;
+
+    /**
+     * Whether or not the CocoaPods Analyzer is enabled.
+     */
+    @Parameter(property = "cocoapodsAnalyzerEnabled", required = false)
+    private Boolean cocoapodsAnalyzerEnabled;
+
+    /**
+     * Whether or not the Swift package Analyzer is enabled.
+     */
+    @Parameter(property = "swiftPackageManagerAnalyzerEnabled", required = false)
+    private Boolean swiftPackageManagerAnalyzerEnabled;
 
     /**
      * The URL of a Nexus server's REST API end point
@@ -591,35 +627,7 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
      * @return a collection of exceptions that may have occurred while resolving
      * and scanning the dependencies
      */
-    protected ExceptionCollection scanArtifacts(MavenProject project, MavenEngine engine) {
-        // <editor-fold defaultstate="collapsed" desc="old implementation">
-        /*
-            for (Artifact a : project.getArtifacts()) {
-            if (excludeFromScan(a)) {
-            continue;
-            }
-            final List<Dependency> deps = engine.scan(a.getFile().getAbsoluteFile());
-            if (deps != null) {
-            if (deps.size() == 1) {
-            final Dependency d = deps.get(0);
-            if (d != null) {
-            final MavenArtifact ma = new MavenArtifact(a.getGroupId(), a.getArtifactId(), a.getVersion());
-            d.addAsEvidence("pom", ma, Confidence.HIGHEST);
-            d.addProjectReference(project.getName());
-            if (getLog().isDebugEnabled()) {
-            getLog().debug(String.format("Adding project reference %s on dependency %s", project.getName(),
-            d.getDisplayFileName()));
-            }
-            }
-            } else if (getLog().isDebugEnabled()) {
-            final String msg = String.format("More then 1 dependency was identified in first pass scan of '%s:%s:%s'",
-            a.getGroupId(), a.getArtifactId(), a.getVersion());
-            getLog().debug(msg);
-            }
-            }
-            }
-         */
-        // </editor-fold>
+    protected ExceptionCollection scanArtifacts(MavenProject project, Engine engine) {
         try {
             final DependencyNode dn = dependencyGraphBuilder.buildDependencyGraph(project, null, reactorProjects);
             return collectDependencies(engine, project, dn.getChildren());
@@ -641,20 +649,23 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
      * @return a collection of exceptions that may have occurred while resolving
      * and scanning the dependencies
      */
-    private ExceptionCollection collectDependencies(MavenEngine engine, MavenProject project, List<DependencyNode> nodes) {
+    private ExceptionCollection collectDependencies(Engine engine, MavenProject project, List<DependencyNode> nodes) {
         ExceptionCollection exCol = null;
         for (DependencyNode dependencyNode : nodes) {
             exCol = collectDependencies(engine, project, dependencyNode.getChildren());
             if (excludeFromScan(dependencyNode.getArtifact().getScope())) {
                 continue;
             }
-            final ArtifactRequest request = new ArtifactRequest();
-            request.setArtifact(new DefaultArtifact(dependencyNode.getArtifact().getId()));
-            request.setRepositories(remoteRepos);
             try {
+                //an alternative request method is documented here
+                // https://www.mirkosertic.de/wordpress/2015/12/how-to-download-maven-artifacts-with-maven-3-1-and-eclipse-aether/
+                final ArtifactRequest request = new ArtifactRequest();
+                request.setArtifact(new DefaultArtifact(dependencyNode.getArtifact().getId()));
+                request.setRepositories(remoteRepos);
                 final ArtifactResult result = repoSystem.resolveArtifact(repoSession, request);
                 if (result.isResolved() && result.getArtifact() != null && result.getArtifact().getFile() != null) {
-                    final List<Dependency> deps = engine.scan(result.getArtifact().getFile().getAbsoluteFile());
+                    final List<Dependency> deps = engine.scan(result.getArtifact().getFile().getAbsoluteFile(),
+                            project.getName() + ":" + dependencyNode.getArtifact().getScope());
                     if (deps != null) {
                         if (deps.size() == 1) {
                             final Dependency d = deps.get(0);
@@ -662,7 +673,6 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
                                 final Artifact a = result.getArtifact();
                                 final MavenArtifact ma = new MavenArtifact(a.getGroupId(), a.getArtifactId(), a.getVersion());
                                 d.addAsEvidence("pom", ma, Confidence.HIGHEST);
-                                d.addProjectReference(project.getName() + ":" + dependencyNode.getArtifact().getScope());
                                 if (getLog().isDebugEnabled()) {
                                     getLog().debug(String.format("Adding project reference %s on dependency %s",
                                             project.getName(), d.getDisplayFileName()));
@@ -786,14 +796,14 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
     //</editor-fold>
 
     /**
-     * Initializes a new <code>MavenEngine</code> that can be used for scanning.
+     * Initializes a new <code>Engine</code> that can be used for scanning.
      *
-     * @return a newly instantiated <code>MavenEngine</code>
+     * @return a newly instantiated <code>Engine</code>
      * @throws DatabaseException thrown if there is a database exception
      */
-    protected MavenEngine initializeEngine() throws DatabaseException {
+    protected Engine initializeEngine() throws DatabaseException {
         populateSettings();
-        return new MavenEngine(this.project, this.reactorProjects);
+        return new Engine();
     }
 
     /**
@@ -833,7 +843,7 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
         }
 
         if (proxyUrl != null && !proxyUrl.isEmpty()) {
-            getLog().warn("Deprecated configuration detected, proxyUrl will be ignored; use the maven settings " + "to configure the proxy instead");
+            getLog().warn("Deprecated configuration detected, proxyUrl will be ignored; use the maven settings to configure the proxy instead");
         }
         final Proxy proxy = getMavenProxy();
         if (proxy != null) {
@@ -848,6 +858,7 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
 
         Settings.setStringIfNotEmpty(Settings.KEYS.CONNECTION_TIMEOUT, connectionTimeout);
         Settings.setStringIfNotEmpty(Settings.KEYS.SUPPRESSION_FILE, suppressionFile);
+        Settings.setStringIfNotEmpty(Settings.KEYS.HINTS_FILE, hintsFile);
 
         //File Type Analyzer Settings
         Settings.setBooleanIfNotNull(Settings.KEYS.ANALYZER_JAR_ENABLED, jarAnalyzerEnabled);
@@ -869,6 +880,10 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
         Settings.setBooleanIfNotNull(Settings.KEYS.ANALYZER_AUTOCONF_ENABLED, autoconfAnalyzerEnabled);
         Settings.setBooleanIfNotNull(Settings.KEYS.ANALYZER_COMPOSER_LOCK_ENABLED, composerAnalyzerEnabled);
         Settings.setBooleanIfNotNull(Settings.KEYS.ANALYZER_NODE_PACKAGE_ENABLED, nodeAnalyzerEnabled);
+        Settings.setBooleanIfNotNull(Settings.KEYS.ANALYZER_BUNDLE_AUDIT_ENABLED, bundleAuditAnalyzerEnabled);
+        Settings.setStringIfNotNull(Settings.KEYS.ANALYZER_BUNDLE_AUDIT_PATH, bundleAuditPath);
+        Settings.setBooleanIfNotNull(Settings.KEYS.ANALYZER_COCOAPODS_ENABLED, cocoapodsAnalyzerEnabled);
+        Settings.setBooleanIfNotNull(Settings.KEYS.ANALYZER_SWIFT_PACKAGE_MANAGER_ENABLED, swiftPackageManagerAnalyzerEnabled);
 
         //Database configuration
         Settings.setStringIfNotEmpty(Settings.KEYS.DB_DRIVER_NAME, databaseDriverName);
@@ -1015,7 +1030,7 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
      * @param outputDir the directory path to write the report(s)
      * @throws ReportException thrown if there is an error writing the report
      */
-    protected void writeReports(MavenEngine engine, MavenProject p, File outputDir) throws ReportException {
+    protected void writeReports(Engine engine, MavenProject p, File outputDir) throws ReportException {
         DatabaseProperties prop = null;
         CveDB cve = null;
         try {
@@ -1051,28 +1066,32 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
      * higher then the threshold set
      */
     protected void checkForFailure(List<Dependency> dependencies) throws MojoFailureException {
-        if (failBuildOnCVSS <= 10) {
-            final StringBuilder ids = new StringBuilder();
-            for (Dependency d : dependencies) {
-                boolean addName = true;
-                for (Vulnerability v : d.getVulnerabilities()) {
-                    if (v.getCvssScore() >= failBuildOnCVSS) {
-                        if (addName) {
-                            addName = false;
-                            ids.append(NEW_LINE).append(d.getFileName()).append(": ");
-                            ids.append(v.getName());
-                        } else {
-                            ids.append(", ").append(v.getName());
-                        }
+        final StringBuilder ids = new StringBuilder();
+        for (Dependency d : dependencies) {
+            boolean addName = true;
+            for (Vulnerability v : d.getVulnerabilities()) {
+                if (failBuildOnAnyVulnerability || v.getCvssScore() >= failBuildOnCVSS) {
+                    if (addName) {
+                        addName = false;
+                        ids.append(NEW_LINE).append(d.getFileName()).append(": ");
+                        ids.append(v.getName());
+                    } else {
+                        ids.append(", ").append(v.getName());
                     }
                 }
             }
-            if (ids.length() > 0) {
-                final String msg = String.format("%n%nDependency-Check Failure:%n"
-                        + "One or more dependencies were identified with vulnerabilities that have a CVSS score greater then '%.1f': %s%n"
+        }
+        if (ids.length() > 0) {
+            final String msg;
+            if (failBuildOnAnyVulnerability) {
+                msg = String.format("%n%nOne or more dependencies were identified with vulnerabilities: %n%s%n%n"
+                        + "See the dependency-check report for more details.%n%n", ids.toString());
+            } else {
+                msg = String.format("%n%nOne or more dependencies were identified with vulnerabilities that have a CVSS score greater then '%.1f': %n%s%n%n"
                         + "See the dependency-check report for more details.%n%n", failBuildOnCVSS, ids.toString());
-                throw new MojoFailureException(msg);
             }
+
+            throw new MojoFailureException(msg);
         }
     }
 
@@ -1196,64 +1215,6 @@ public abstract class BaseDependencyCheckMojo extends AbstractMojo implements Ma
                 }
             }
         }
-    }
-
-    /**
-     * Reads the serialized scan data from disk. This is used to serialize the
-     * scan data between the "check" and "aggregate" phase.
-     *
-     * @param project the Maven project to read the data file from
-     * @return a <code>MavenEngine</code> object populated with dependencies if
-     * the serialized data file exists; otherwise <code>null</code> is returned
-     */
-    protected List<Dependency> readDataFile(MavenProject project) {
-        final Object oPath = project.getContextValue(this.getDataFileContextKey());
-        if (oPath == null) {
-            return null;
-        }
-        List<Dependency> ret = null;
-        final String path = (String) oPath;
-        //ObjectInputStream ois = null;
-        ExpectedOjectInputStream ois = null;
-        try {
-            //ois = new ObjectInputStream(new FileInputStream(path));
-            ois = new ExpectedOjectInputStream(new FileInputStream(path),
-                    "java.util.ArrayList",
-                    "java.util.HashSet",
-                    "java.util.TreeSet",
-                    "java.lang.AbstractSet",
-                    "java.lang.AbstractCollection",
-                    "java.lang.Enum",
-                    "org.owasp.dependencycheck.dependency.Confidence",
-                    "org.owasp.dependencycheck.dependency.Dependency",
-                    "org.owasp.dependencycheck.dependency.Evidence",
-                    "org.owasp.dependencycheck.dependency.EvidenceCollection",
-                    "org.owasp.dependencycheck.dependency.Identifier",
-                    "org.owasp.dependencycheck.dependency.Reference",
-                    "org.owasp.dependencycheck.dependency.Vulnerability",
-                    "org.owasp.dependencycheck.dependency.VulnerabilityComparator",
-                    "org.owasp.dependencycheck.dependency.VulnerableSoftware",
-                    "org.owasp.dependencycheck.data.cpe.IndexEntry");
-            @SuppressWarnings("unchecked")
-            final List<Dependency> depList = (List<Dependency>) ois.readObject();
-            ret = depList;
-        } catch (FileNotFoundException ex) {
-            //TODO fix logging
-            getLog().error("", ex);
-        } catch (IOException ex) {
-            getLog().error("", ex);
-        } catch (ClassNotFoundException ex) {
-            getLog().error("", ex);
-        } finally {
-            if (ois != null) {
-                try {
-                    ois.close();
-                } catch (IOException ex) {
-                    getLog().error("", ex);
-                }
-            }
-        }
-        return ret;
     }
     //</editor-fold>
 

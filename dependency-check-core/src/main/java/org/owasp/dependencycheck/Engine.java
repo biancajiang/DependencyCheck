@@ -21,7 +21,6 @@ import org.owasp.dependencycheck.analyzer.AnalysisPhase;
 import org.owasp.dependencycheck.analyzer.Analyzer;
 import org.owasp.dependencycheck.analyzer.AnalyzerService;
 import org.owasp.dependencycheck.analyzer.FileTypeAnalyzer;
-import org.owasp.dependencycheck.analyzer.exception.AnalysisException;
 import org.owasp.dependencycheck.data.nvdcve.ConnectionFactory;
 import org.owasp.dependencycheck.data.nvdcve.CveDB;
 import org.owasp.dependencycheck.data.nvdcve.DatabaseException;
@@ -29,9 +28,9 @@ import org.owasp.dependencycheck.data.update.CachedWebDataSource;
 import org.owasp.dependencycheck.data.update.UpdateService;
 import org.owasp.dependencycheck.data.update.exception.UpdateException;
 import org.owasp.dependencycheck.dependency.Dependency;
-import org.owasp.dependencycheck.exception.NoDataException;
 import org.owasp.dependencycheck.exception.ExceptionCollection;
 import org.owasp.dependencycheck.exception.InitializationException;
+import org.owasp.dependencycheck.exception.NoDataException;
 import org.owasp.dependencycheck.utils.InvalidSettingException;
 import org.owasp.dependencycheck.utils.Settings;
 import org.slf4j.Logger;
@@ -41,12 +40,19 @@ import java.io.File;
 import java.io.FileFilter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Scans files, directories, etc. for Dependencies. Analyzers are loaded and
@@ -61,7 +67,7 @@ public class Engine implements FileFilter {
     /**
      * The list of dependencies.
      */
-    private List<Dependency> dependencies = new ArrayList<Dependency>();
+    private final List<Dependency> dependencies = Collections.synchronizedList(new ArrayList<Dependency>());
     /**
      * A Map of analyzers grouped by Analysis phase.
      */
@@ -156,11 +162,17 @@ public class Engine implements FileFilter {
     }
 
     /**
-     * Get the dependencies identified.
+     * Get the dependencies identified. The returned list is a reference to the
+     * engine's synchronized list. <b>You must synchronize on the returned
+     * list</b> when you modify and iterate over it from multiple threads. E.g.
+     * this holds for analyzers supporting parallel processing during their
+     * analysis phase.
      *
      * @return the dependencies identified
+     * @see Collections#synchronizedList(List)
+     * @see Analyzer#supportsParallelProcessing()
      */
-    public List<Dependency> getDependencies() {
+    public synchronized List<Dependency> getDependencies() {
         return dependencies;
     }
 
@@ -170,7 +182,10 @@ public class Engine implements FileFilter {
      * @param dependencies the dependencies
      */
     public void setDependencies(List<Dependency> dependencies) {
-        this.dependencies = dependencies;
+        synchronized (this.dependencies) {
+            this.dependencies.clear();
+            this.dependencies.addAll(dependencies);
+        }
     }
 
     /**
@@ -183,9 +198,24 @@ public class Engine implements FileFilter {
      * @since v0.3.2.5
      */
     public List<Dependency> scan(String[] paths) {
+        return scan(paths, null);
+    }
+
+    /**
+     * Scans an array of files or directories. If a directory is specified, it
+     * will be scanned recursively. Any dependencies identified are added to the
+     * dependency collection.
+     *
+     * @param paths an array of paths to files or directories to be analyzed
+     * @param projectReference the name of the project or scope in which the
+     * dependency was identified
+     * @return the list of dependencies scanned
+     * @since v1.4.4
+     */
+    public List<Dependency> scan(String[] paths, String projectReference) {
         final List<Dependency> deps = new ArrayList<Dependency>();
         for (String path : paths) {
-            final List<Dependency> d = scan(path);
+            final List<Dependency> d = scan(path, projectReference);
             if (d != null) {
                 deps.addAll(d);
             }
@@ -202,8 +232,23 @@ public class Engine implements FileFilter {
      * @return the list of dependencies scanned
      */
     public List<Dependency> scan(String path) {
+        return scan(path, null);
+    }
+
+    /**
+     * Scans a given file or directory. If a directory is specified, it will be
+     * scanned recursively. Any dependencies identified are added to the
+     * dependency collection.
+     *
+     * @param path the path to a file or directory to be analyzed
+     * @param projectReference the name of the project or scope in which the
+     * dependency was identified
+     * @return the list of dependencies scanned
+     * @since v1.4.4
+     */
+    public List<Dependency> scan(String path, String projectReference) {
         final File file = new File(path);
-        return scan(file);
+        return scan(file, projectReference);
     }
 
     /**
@@ -216,9 +261,24 @@ public class Engine implements FileFilter {
      * @since v0.3.2.5
      */
     public List<Dependency> scan(File[] files) {
+        return scan(files, null);
+    }
+
+    /**
+     * Scans an array of files or directories. If a directory is specified, it
+     * will be scanned recursively. Any dependencies identified are added to the
+     * dependency collection.
+     *
+     * @param files an array of paths to files or directories to be analyzed.
+     * @param projectReference the name of the project or scope in which the
+     * dependency was identified
+     * @return the list of dependencies
+     * @since v1.4.4
+     */
+    public List<Dependency> scan(File[] files, String projectReference) {
         final List<Dependency> deps = new ArrayList<Dependency>();
         for (File file : files) {
-            final List<Dependency> d = scan(file);
+            final List<Dependency> d = scan(file, projectReference);
             if (d != null) {
                 deps.addAll(d);
             }
@@ -236,9 +296,24 @@ public class Engine implements FileFilter {
      * @since v0.3.2.5
      */
     public List<Dependency> scan(Collection<File> files) {
+        return scan(files, null);
+    }
+
+    /**
+     * Scans a collection of files or directories. If a directory is specified,
+     * it will be scanned recursively. Any dependencies identified are added to
+     * the dependency collection.
+     *
+     * @param files a set of paths to files or directories to be analyzed
+     * @param projectReference the name of the project or scope in which the
+     * dependency was identified
+     * @return the list of dependencies scanned
+     * @since v1.4.4
+     */
+    public List<Dependency> scan(Collection<File> files, String projectReference) {
         final List<Dependency> deps = new ArrayList<Dependency>();
         for (File file : files) {
-            final List<Dependency> d = scan(file);
+            final List<Dependency> d = scan(file, projectReference);
             if (d != null) {
                 deps.addAll(d);
             }
@@ -256,11 +331,26 @@ public class Engine implements FileFilter {
      * @since v0.3.2.4
      */
     public List<Dependency> scan(File file) {
+        return scan(file, null);
+    }
+
+    /**
+     * Scans a given file or directory. If a directory is specified, it will be
+     * scanned recursively. Any dependencies identified are added to the
+     * dependency collection.
+     *
+     * @param file the path to a file or directory to be analyzed
+     * @param projectReference the name of the project or scope in which the
+     * dependency was identified
+     * @return the list of dependencies scanned
+     * @since v1.4.4
+     */
+    public List<Dependency> scan(File file, String projectReference) {
         if (file.exists()) {
             if (file.isDirectory()) {
-                return scanDirectory(file);
+                return scanDirectory(file, projectReference);
             } else {
-                final Dependency d = scanFile(file);
+                final Dependency d = scanFile(file, projectReference);
                 if (d != null) {
                     final List<Dependency> deps = new ArrayList<Dependency>();
                     deps.add(d);
@@ -279,17 +369,31 @@ public class Engine implements FileFilter {
      * @return the list of Dependency objects scanned
      */
     protected List<Dependency> scanDirectory(File dir) {
+        return scanDirectory(dir, null);
+    }
+
+    /**
+     * Recursively scans files and directories. Any dependencies identified are
+     * added to the dependency collection.
+     *
+     * @param dir the directory to scan
+     * @param projectReference the name of the project or scope in which the
+     * dependency was identified
+     * @return the list of Dependency objects scanned
+     * @since v1.4.4
+     */
+    protected List<Dependency> scanDirectory(File dir, String projectReference) {
         final File[] files = dir.listFiles();
         final List<Dependency> deps = new ArrayList<Dependency>();
         if (files != null) {
             for (File f : files) {
                 if (f.isDirectory()) {
-                    final List<Dependency> d = scanDirectory(f);
+                    final List<Dependency> d = scanDirectory(f, projectReference);
                     if (d != null) {
                         deps.addAll(d);
                     }
                 } else {
-                    final Dependency d = scanFile(f);
+                    final Dependency d = scanFile(f, projectReference);
                     deps.add(d);
                 }
             }
@@ -305,14 +409,54 @@ public class Engine implements FileFilter {
      * @return the scanned dependency
      */
     protected Dependency scanFile(File file) {
+        return scanFile(file, null);
+    }
+
+    /**
+     * Scans a specified file. If a dependency is identified it is added to the
+     * dependency collection.
+     *
+     * @param file The file to scan
+     * @param projectReference the name of the project or scope in which the
+     * dependency was identified
+     * @return the scanned dependency
+     * @since v1.4.4
+     */
+    protected Dependency scanFile(File file, String projectReference) {
         Dependency dependency = null;
         if (file.isFile()) {
             if (accept(file)) {
                 dependency = new Dependency(file);
-                dependencies.add(dependency);
+                if (projectReference != null) {
+                    dependency.addProjectReference(projectReference);
+                }
+                final String sha1 = dependency.getSha1sum();
+                boolean found = false;
+                synchronized (dependencies) {
+                    if (sha1 != null) {
+                        for (Dependency existing : dependencies) {
+                            if (sha1.equals(existing.getSha1sum())) {
+                                found = true;
+                                if (projectReference != null) {
+                                    existing.addProjectReference(projectReference);
+                                }
+                                if (existing.getActualFilePath() != null && dependency.getActualFilePath() != null
+                                        && !existing.getActualFilePath().equals(dependency.getActualFilePath())) {
+                                    existing.addRelatedDependency(dependency);
+                                } else {
+                                    dependency = existing;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    if (!found) {
+                        dependencies.add(dependency);
+                    }
+                }
+            } else {
+                LOGGER.debug("Path passed to scanFile(File) is not a file: {}. Skipping the file.", file);
             }
-        } else {
-            LOGGER.debug("Path passed to scanFile(File) is not a file: {}. Skipping the file.", file);
         }
         return dependency;
     }
@@ -323,7 +467,7 @@ public class Engine implements FileFilter {
      * iterates over a copy of the dependencies list. Thus, the potential for
      * {@link java.util.ConcurrentModificationException}s is avoided, and
      * analyzers may safely add or remove entries from the dependencies list.
-     *
+     * <p>
      * Every effort is made to complete analysis on the dependencies. In some
      * cases an exception will occur with part of the analysis being performed
      * which may not affect the entire analysis. If an exception occurs it will
@@ -333,7 +477,7 @@ public class Engine implements FileFilter {
      * during analysis
      */
     public void analyzeDependencies() throws ExceptionCollection {
-        final List<Throwable> exceptions = new ArrayList<Throwable>();
+        final List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<Throwable>());
         boolean autoUpdate = true;
         try {
             autoUpdate = Settings.getBoolean(Settings.KEYS.AUTO_UPDATE);
@@ -356,15 +500,9 @@ public class Engine implements FileFilter {
         try {
             ensureDataExists();
         } catch (NoDataException ex) {
-            LOGGER.error("{}\n\nUnable to continue dependency-check analysis.", ex.getMessage());
-            LOGGER.debug("", ex);
-            exceptions.add(ex);
-            throw new ExceptionCollection("Unable to continue dependency-check analysis.", exceptions, true);
+            throwFatalExceptionCollection("Unable to continue dependency-check analysis.", ex, exceptions);
         } catch (DatabaseException ex) {
-            LOGGER.error("{}\n\nUnable to continue dependency-check analysis.", ex.getMessage());
-            LOGGER.debug("", ex);
-            exceptions.add(ex);
-            throw new ExceptionCollection("Unable to connect to the dependency-check database", exceptions, true);
+            throwFatalExceptionCollection("Unable to connect to the dependency-check database.", ex, exceptions);
         }
 
         LOGGER.debug("\n----------------------------------------------------\nBEGIN ANALYSIS\n----------------------------------------------------");
@@ -375,41 +513,23 @@ public class Engine implements FileFilter {
         for (AnalysisPhase phase : AnalysisPhase.values()) {
             final List<Analyzer> analyzerList = analyzers.get(phase);
 
-            for (Analyzer a : analyzerList) {
+            for (final Analyzer analyzer : analyzerList) {
+                final long analyzerStart = System.currentTimeMillis();
                 try {
-                    a = initializeAnalyzer(a);
+                    initializeAnalyzer(analyzer);
                 } catch (InitializationException ex) {
                     exceptions.add(ex);
                     continue;
                 }
 
-                /* need to create a copy of the collection because some of the
-                 * analyzers may modify it. This prevents ConcurrentModificationExceptions.
-                 * This is okay for adds/deletes because it happens per analyzer.
-                 */
-                LOGGER.debug("Begin Analyzer '{}'", a.getName());
-                final Set<Dependency> dependencySet = new HashSet<Dependency>(dependencies);
-                for (Dependency d : dependencySet) {
-                    boolean shouldAnalyze = true;
-                    if (a instanceof FileTypeAnalyzer) {
-                        final FileTypeAnalyzer fAnalyzer = (FileTypeAnalyzer) a;
-                        shouldAnalyze = fAnalyzer.accept(d.getActualFile());
-                    }
-                    if (shouldAnalyze) {
-                        LOGGER.debug("Begin Analysis of '{}'", d.getActualFilePath());
-                        try {
-                            a.analyze(d, this);
-                        } catch (AnalysisException ex) {
-                            LOGGER.warn("An error occurred while analyzing '{}'.", d.getActualFilePath());
-                            LOGGER.debug("", ex);
-                            exceptions.add(ex);
-                        } catch (Throwable ex) {
-                            //final AnalysisException ax = new AnalysisException(axMsg, ex);
-                            LOGGER.warn("An unexpected error occurred during analysis of '{}'", d.getActualFilePath());
-                            LOGGER.debug("", ex);
-                            exceptions.add(ex);
-                        }
-                    }
+                if (analyzer.isEnabled()) {
+                    executeAnalysisTasks(analyzer, exceptions);
+
+                    final long analyzerDurationMillis = System.currentTimeMillis() - analyzerStart;
+                    final long analyzerDurationSeconds = TimeUnit.MILLISECONDS.toSeconds(analyzerDurationMillis);
+                    LOGGER.info("Finished {} ({} seconds)", analyzer.getName(), analyzerDurationSeconds);
+                } else {
+                    LOGGER.debug("Skipping {} (not enabled)", analyzer.getName());
                 }
             }
         }
@@ -422,9 +542,80 @@ public class Engine implements FileFilter {
         }
 
         LOGGER.debug("\n----------------------------------------------------\nEND ANALYSIS\n----------------------------------------------------");
-        LOGGER.info("Analysis Complete ({} ms)", System.currentTimeMillis() - analysisStart);
+        final long analysisDurationSeconds = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - analysisStart);
+        LOGGER.info("Analysis Complete ({} seconds)", analysisDurationSeconds);
         if (exceptions.size() > 0) {
-            throw new ExceptionCollection("One or more exceptions occured during dependency-check analysis", exceptions);
+            throw new ExceptionCollection("One or more exceptions occurred during dependency-check analysis", exceptions);
+        }
+    }
+
+    /**
+     * Executes executes the analyzer using multiple threads.
+     *
+     * @param exceptions a collection of exceptions that occurred during
+     * analysis
+     * @param analyzer the analyzer to execute
+     * @throws ExceptionCollection thrown if exceptions occurred during analysis
+     */
+    void executeAnalysisTasks(Analyzer analyzer, List<Throwable> exceptions) throws ExceptionCollection {
+        LOGGER.debug("Starting {}", analyzer.getName());
+        final List<AnalysisTask> analysisTasks = getAnalysisTasks(analyzer, exceptions);
+        final ExecutorService executorService = getExecutorService(analyzer);
+
+        try {
+            final List<Future<Void>> results = executorService.invokeAll(analysisTasks, 10, TimeUnit.MINUTES);
+
+            // ensure there was no exception during execution
+            for (Future<Void> result : results) {
+                try {
+                    result.get();
+                } catch (ExecutionException e) {
+                    throwFatalExceptionCollection("Analysis task failed with a fatal exception.", e, exceptions);
+                } catch (CancellationException e) {
+                    throwFatalExceptionCollection("Analysis task timed out.", e, exceptions);
+                }
+            }
+        } catch (InterruptedException e) {
+            throwFatalExceptionCollection("Analysis has been interrupted.", e, exceptions);
+        } finally {
+            executorService.shutdown();
+        }
+    }
+
+    /**
+     * Returns the analysis tasks for the dependencies.
+     *
+     * @param analyzer the analyzer to create tasks for
+     * @param exceptions the collection of exceptions to collect
+     * @return a collection of analysis tasks
+     */
+    List<AnalysisTask> getAnalysisTasks(Analyzer analyzer, List<Throwable> exceptions) {
+        final List<AnalysisTask> result = new ArrayList<AnalysisTask>();
+        synchronized (dependencies) {
+            for (final Dependency dependency : dependencies) {
+                final AnalysisTask task = new AnalysisTask(analyzer, dependency, this, exceptions, Settings.getInstance());
+                result.add(task);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Returns the executor service for a given analyzer.
+     *
+     * @param analyzer the analyzer to obtain an executor
+     * @return the executor service
+     */
+    ExecutorService getExecutorService(Analyzer analyzer) {
+        if (analyzer.supportsParallelProcessing()) {
+            // just a fair trade-off that should be reasonable for all analyzer types
+            final int maximumNumberOfThreads = 4 * Runtime.getRuntime().availableProcessors();
+
+            LOGGER.debug("Parallel processing with up to {} threads: {}.", maximumNumberOfThreads, analyzer.getName());
+            return Executors.newFixedThreadPool(maximumNumberOfThreads);
+        } else {
+            LOGGER.debug("Parallel processing is not supported: {}.", analyzer.getName());
+            return Executors.newSingleThreadExecutor();
         }
     }
 
@@ -540,6 +731,16 @@ public class Engine implements FileFilter {
     }
 
     /**
+     * Adds a file type analyzer. This has been added solely to assist in unit
+     * testing the Engine.
+     *
+     * @param fta the file type analyzer to add
+     */
+    protected void addFileTypeAnalyzer(FileTypeAnalyzer fta) {
+        this.fileTypeAnalyzers.add(fta);
+    }
+
+    /**
      * Checks the CPE Index to ensure documents exists. If none exist a
      * NoDataException is thrown.
      *
@@ -559,5 +760,21 @@ public class Engine implements FileFilter {
         } finally {
             cve.close();
         }
+    }
+
+    /**
+     * Constructs and throws a fatal exception collection.
+     *
+     * @param message the exception message
+     * @param throwable the cause
+     * @param exceptions a collection of exception to include
+     * @throws ExceptionCollection a collection of exceptions that occurred
+     * during analysis
+     */
+    private void throwFatalExceptionCollection(String message, Throwable throwable, List<Throwable> exceptions) throws ExceptionCollection {
+        LOGGER.error("{}\n\n{}", throwable.getMessage(), message);
+        LOGGER.debug("", throwable);
+        exceptions.add(throwable);
+        throw new ExceptionCollection(message, exceptions, true);
     }
 }
