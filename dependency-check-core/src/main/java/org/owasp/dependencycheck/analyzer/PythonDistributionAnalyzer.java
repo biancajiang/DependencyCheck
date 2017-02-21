@@ -196,11 +196,11 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
                 final File parent = actualFile.getParentFile();
                 final String parentName = parent.getName();
                 dependency.setDisplayFileName(parentName + "/" + name);
-                if (parent.isDirectory()
-                        && (metadata && parentName.endsWith(".dist-info")
-                        || parentName.endsWith(".egg-info") || "EGG-INFO"
-                        .equals(parentName))) {
-                    collectWheelMetadata(dependency, actualFile);
+                if (parent.isDirectory() ) {
+//                        && (metadata && parentName.endsWith(".dist-info")
+//                        || parentName.endsWith(".egg-info") || "EGG-INFO"
+//                        .equals(parentName))) {
+                    collectWheelMetadata(dependency, actualFile, metadata ? METADATA : PKG_INFO);
                 }
             }
         }
@@ -232,7 +232,7 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
         if (matchingFile != null) {
             matchingFile = getMatchingFile(matchingFile, metadataFilter);
             if (matchingFile != null) {
-                collectWheelMetadata(dependency, matchingFile);
+                collectWheelMetadata(dependency, matchingFile, metadataFilter.toString());
             }
         }
     }
@@ -289,11 +289,11 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
      * @param dependency the dependency being analyzed
      * @param file a reference to the manifest/properties file
      */
-    private static void collectWheelMetadata(Dependency dependency, File file) {
+    private static void collectWheelMetadata(Dependency dependency, File file, String source) {
         final InternetHeaders headers = getManifestProperties(file);
-        addPropertyToEvidence(headers, dependency.getVersionEvidence(),
+        addPropertyToEvidence(source, headers, dependency.getVersionEvidence(),
                 "Version", Confidence.HIGHEST);
-        addPropertyToEvidence(headers, dependency.getProductEvidence(), "Name",
+        addPropertyToEvidence(source, headers, dependency.getProductEvidence(), "Name",
                 Confidence.HIGHEST);
         final String url = headers.getHeader("Home-page", null);
         final EvidenceCollection vendorEvidence = dependency
@@ -304,7 +304,7 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
                         Confidence.MEDIUM);
             }
         }
-        addPropertyToEvidence(headers, vendorEvidence, "Author", Confidence.LOW);
+        addPropertyToEvidence(source, headers, vendorEvidence, "Author", Confidence.LOW);
         final String summary = headers.getHeader("Summary", null);
         if (StringUtils.isNotBlank(summary)) {
             JarAnalyzer
@@ -320,12 +320,12 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
      * @param property the property name
      * @param confidence the confidence of the evidence
      */
-    private static void addPropertyToEvidence(InternetHeaders headers,
+    private static void addPropertyToEvidence(String source, InternetHeaders headers,
             EvidenceCollection evidence, String property, Confidence confidence) {
         final String value = headers.getHeader(property, null);
         LOGGER.debug("Property: {}, Value: {}", property, value);
         if (StringUtils.isNotBlank(value)) {
-            evidence.addEvidence(METADATA, property, value, confidence);
+            evidence.addEvidence(source, property, value, confidence);
         }
     }
 
