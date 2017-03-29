@@ -165,4 +165,20 @@ public class PythonDistributionAnalyzerTest extends BaseTest {
         }
         assertTrue("Version 0.0.1 not found in EggTest dependency.", found);
     }
+
+
+    @Test
+    public void testAnalyzeEggInfoFile() throws AnalysisException {
+        String resource = "python/site-packages/notebook-4.3.1-py3.6.egg-info";
+
+        final Dependency result = new Dependency(BaseTest.getResourceAsFile(
+                this, resource));
+        analyzer.analyze(result, null);
+        assertTrue("Expected product evidence to contain \"notebook\".", result
+                .getProductEvidence().toString().contains("notebook"));
+        assertTrue("Expected product evidence to contain \"BSD\".", result
+                .getProductEvidence().toString().contains("BSD"));
+        assertTrue("Expected version evidence to contain \"4.3.1\".", result
+                .getVersionEvidence().toString().contains("4.3.1"));
+    }
 }

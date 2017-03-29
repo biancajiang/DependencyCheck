@@ -67,6 +67,16 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
     private static final String METADATA = "METADATA";
 
     /**
+     * Name of egg metadata files to analyze.
+     */
+    private static final String EGG_INFO_FILE = ".egg-info";
+    
+    /**
+     * Name of egg medata files to analyze.
+     */
+    private static final FileFilter EGG_INFO_FILE_FILTER = new SuffixFileFilter(EGG_INFO_FILE);
+
+    /**
      * The logger.
      */
     private static final Logger LOGGER = LoggerFactory
@@ -203,6 +213,9 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
                     collectWheelMetadata(dependency, actualFile, metadata ? METADATA : PKG_INFO);
                 }
             }
+            else if (EGG_INFO_FILE_FILTER.accept(actualFile)) {
+            	collectWheelMetadata(dependency, actualFile, EGG_INFO_FILE);
+            }
         }
     }
 
@@ -294,6 +307,8 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
         addPropertyToEvidence(source, headers, dependency.getVersionEvidence(),
                 "Version", Confidence.HIGHEST);
         addPropertyToEvidence(source, headers, dependency.getProductEvidence(), "Name",
+                Confidence.HIGHEST);
+        addPropertyToEvidence(source, headers, dependency.getProductEvidence(), "License",
                 Confidence.HIGHEST);
         final String url = headers.getHeader("Home-page", null);
         final EvidenceCollection vendorEvidence = dependency
