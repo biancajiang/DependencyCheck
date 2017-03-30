@@ -100,7 +100,7 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
     /**
      * The set of file extensions supported by this analyzer.
      */
-    private static final String[] EXTENSIONS = {"whl", "egg", "zip"};
+    private static final String[] EXTENSIONS = {"whl", "egg", "zip", "egg-info"};
 
     /**
      * Used to match on egg archive candidate extensions.
@@ -199,6 +199,8 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
         } else if (EGG_OR_ZIP.accept(actualFile)) {
             collectMetadataFromArchiveFormat(dependency, EGG_INFO_FILTER,
                     PKG_INFO_FILTER);
+        } else if (EGG_INFO_FILE_FILTER.accept(actualFile)) {
+        	collectMetadataFromEgginfoFile(dependency);
         } else {
             final String name = actualFile.getName();
             final boolean metadata = METADATA.equals(name);
@@ -212,9 +214,6 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
 //                        .equals(parentName))) {
                     collectWheelMetadata(dependency, actualFile, metadata ? METADATA : PKG_INFO);
                 }
-            }
-            else if (EGG_INFO_FILE_FILTER.accept(actualFile)) {
-            	collectWheelMetadata(dependency, actualFile, EGG_INFO_FILE);
             }
         }
     }
@@ -301,12 +300,13 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
      *
      * @param dependency the dependency being analyzed
      * @param file a reference to the manifest/properties file
+     * @return the package name if not blank, otherwise null.
      */
-    private static void collectWheelMetadata(Dependency dependency, File file, String source) {
+    private static String collectWheelMetadata(Dependency dependency, File file, String source) {
         final InternetHeaders headers = getManifestProperties(file);
         addPropertyToEvidence(source, headers, dependency.getVersionEvidence(),
                 "Version", Confidence.HIGHEST);
-        addPropertyToEvidence(source, headers, dependency.getProductEvidence(), "Name",
+        String name = addPropertyToEvidence(source, headers, dependency.getProductEvidence(), "Name",
                 Confidence.HIGHEST);
         addPropertyToEvidence(source, headers, dependency.getProductEvidence(), "License",
                 Confidence.HIGHEST);
@@ -325,6 +325,7 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
             JarAnalyzer
                     .addDescription(dependency, summary, METADATA, "summary");
         }
+        return name;
     }
 
     /**
@@ -334,14 +335,17 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
      * @param evidence the evidence collection to add the value
      * @param property the property name
      * @param confidence the confidence of the evidence
+     * @return the property value if not blank, otherwise null.
      */
-    private static void addPropertyToEvidence(String source, InternetHeaders headers,
+    private static String addPropertyToEvidence(String source, InternetHeaders headers,
             EvidenceCollection evidence, String property, Confidence confidence) {
         final String value = headers.getHeader(property, null);
         LOGGER.debug("Property: {}, Value: {}", property, value);
         if (StringUtils.isNotBlank(value)) {
             evidence.addEvidence(source, property, value, confidence);
+            return value;
         }
+        return null;
     }
 
     /**
@@ -415,5 +419,28 @@ public class PythonDistributionAnalyzer extends AbstractFileTypeAnalyzer {
                     directory.getAbsolutePath()));
         }
         return directory;
+    }
+    
+    private void collectMetadataFromEgginfoFile(Dependency dependency) throws AnalysisException {
+        final File actualFile = dependency.getActualFile();
+    	final String packageName = collectWheelMetadata(dependency, actualFile, EGG_INFO_FILE);
+    	
+    	//.egg-info file often comes with a sibling folder with the same dependency name for the actual scripts, etc.
+    	//if so, set it as the packagePath, rather than the default parent folder.
+    	final File parentFolder = actualFile.getParentFile();
+    	final File[] matchingFiles = parentFolder.listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.equals(packageName);
+            }
+        });
+    	if(matchingFiles != null && matchingFiles.length > 0) {
+    		for(int i = 0; i < matchingFiles.length; i++) {
+    			if(matchingFiles[i].isDirectory()) {
+    				dependency.setPackagePath(matchingFiles[i].getAbsolutePath());
+    				break;
+    			}
+    		}
+    	}
     }
 }

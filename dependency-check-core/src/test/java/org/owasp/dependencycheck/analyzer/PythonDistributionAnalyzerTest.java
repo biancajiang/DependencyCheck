@@ -25,6 +25,8 @@ import org.owasp.dependencycheck.analyzer.exception.AnalysisException;
 import org.owasp.dependencycheck.dependency.Dependency;
 import org.owasp.dependencycheck.dependency.Evidence;
 
+import ch.qos.logback.core.net.SyslogOutputStream;
+
 import java.io.File;
 
 import static org.junit.Assert.assertEquals;
@@ -174,11 +176,14 @@ public class PythonDistributionAnalyzerTest extends BaseTest {
         final Dependency result = new Dependency(BaseTest.getResourceAsFile(
                 this, resource));
         analyzer.analyze(result, null);
+        System.out.println(result.getPackagePath());
         assertTrue("Expected product evidence to contain \"notebook\".", result
                 .getProductEvidence().toString().contains("notebook"));
         assertTrue("Expected product evidence to contain \"BSD\".", result
                 .getProductEvidence().toString().contains("BSD"));
         assertTrue("Expected version evidence to contain \"4.3.1\".", result
                 .getVersionEvidence().toString().contains("4.3.1"));
+        assertTrue("Expected package path to be \"python/site-packages/notebook\".", result
+                .getPackagePath().toString().endsWith("python/site-packages/notebook"));
     }
 }
