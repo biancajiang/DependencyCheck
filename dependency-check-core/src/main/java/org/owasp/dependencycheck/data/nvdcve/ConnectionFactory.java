@@ -241,11 +241,29 @@ public final class ConnectionFactory {
      * @throws IOException thrown if the data directory does not exist and
      * cannot be created
      */
-    private static boolean h2DataFileExists() throws IOException {
+    public static boolean h2DataFileExists() throws IOException {
         final File dir = Settings.getDataDirectory();
         final String fileName = Settings.getString(Settings.KEYS.DB_FILE_NAME);
         final File file = new File(dir, fileName);
         return file.exists();
+    }
+
+    /**
+     * Determines if the connection string is for an H2 database.
+     *
+     * @return true if the connection string is for an H2 database
+     */
+    public static boolean isH2Connection() {
+        String connStr;
+        try {
+            connStr = Settings.getConnectionString(
+                    Settings.KEYS.DB_CONNECTION_STRING,
+                    Settings.KEYS.DB_FILE_NAME);
+        } catch (IOException ex) {
+            LOGGER.debug("Unable to get connectionn string", ex);
+            return false;
+        }
+        return connStr.startsWith("jdbc:h2:file:");
     }
 
     /**
@@ -342,7 +360,7 @@ public final class ConnectionFactory {
                 LOGGER.warn("A new version of dependency-check is available; consider upgrading");
                 Settings.setBoolean(Settings.KEYS.AUTO_UPDATE, false);
             } else if (e0 == c0 && e1 == c1) {
-                //do nothing - not sure how we got here, but just incase...
+                //do nothing - not sure how we got here, but just in case...
             } else {
                 LOGGER.error("The database schema must be upgraded to use this version of dependency-check. Please see {} for more information.",
                         UPGRADE_HELP_URL);

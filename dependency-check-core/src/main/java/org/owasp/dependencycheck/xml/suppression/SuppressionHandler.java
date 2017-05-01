@@ -46,6 +46,12 @@ public class SuppressionHandler extends DefaultHandler {
      * The CVE element name.
      */
     public static final String CVE = "cve";
+
+    /**
+     * The CVE element name.
+     */
+    public static final String NOTES = "notes";
+
     /**
      * The CPE element name.
      */
@@ -65,7 +71,7 @@ public class SuppressionHandler extends DefaultHandler {
     /**
      * A list of suppression rules.
      */
-    private final List<SuppressionRule> suppressionRules = new ArrayList<SuppressionRule>();
+    private final List<SuppressionRule> suppressionRules = new ArrayList<>();
 
     /**
      * Get the value of suppressionRules.
@@ -122,27 +128,40 @@ public class SuppressionHandler extends DefaultHandler {
      */
     @Override
     public void endElement(String uri, String localName, String qName) throws SAXException {
-        if (SUPPRESS.equals(qName)) {
-            suppressionRules.add(rule);
-            rule = null;
-        } else if (FILE_PATH.equals(qName)) {
-            final PropertyType pt = processPropertyType();
-            rule.setFilePath(pt);
-        } else if (SHA1.equals(qName)) {
-            rule.setSha1(currentText.toString());
-        } else if (GAV.equals(qName)) {
-            final PropertyType pt = processPropertyType();
-            rule.setGav(pt);
-        } else if (CPE.equals(qName)) {
-            final PropertyType pt = processPropertyType();
-            rule.addCpe(pt);
-        } else if (CWE.equals(qName)) {
-            rule.addCwe(currentText.toString());
-        } else if (CVE.equals(qName)) {
-            rule.addCve(currentText.toString());
-        } else if (CVSS_BELOW.equals(qName)) {
-            final float cvss = Float.parseFloat(currentText.toString());
-            rule.addCvssBelow(cvss);
+        if (null != qName) {
+            switch (qName) {
+                case SUPPRESS:
+                    suppressionRules.add(rule);
+                    rule = null;
+                    break;
+                case FILE_PATH:
+                    rule.setFilePath(processPropertyType());
+                    break;
+                case SHA1:
+                    rule.setSha1(currentText.toString());
+                    break;
+                case GAV:
+                    rule.setGav(processPropertyType());
+                    break;
+                case CPE:
+                    rule.addCpe(processPropertyType());
+                    break;
+                case CWE:
+                    rule.addCwe(currentText.toString());
+                    break;
+                case CVE:
+                    rule.addCve(currentText.toString());
+                    break;
+                case NOTES:
+                    rule.addNotes(currentText.toString());
+                    break;
+                case CVSS_BELOW:
+                    final float cvss = Float.parseFloat(currentText.toString());
+                    rule.addCvssBelow(cvss);
+                    break;
+                default:
+                    break;
+            }
         }
     }
 
@@ -160,8 +179,8 @@ public class SuppressionHandler extends DefaultHandler {
     }
 
     /**
-     * Processes field members that have been collected during the characters and startElement method to construct a
-     * PropertyType object.
+     * Processes field members that have been collected during the characters
+     * and startElement method to construct a PropertyType object.
      *
      * @return a PropertyType object
      */

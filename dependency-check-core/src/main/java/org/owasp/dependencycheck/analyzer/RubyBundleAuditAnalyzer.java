@@ -113,7 +113,7 @@ public class RubyBundleAuditAnalyzer extends AbstractFileTypeAnalyzer {
         if (!folder.isDirectory()) {
             throw new AnalysisException(String.format("%s should have been a directory.", folder.getAbsolutePath()));
         }
-        final List<String> args = new ArrayList<String>();
+        final List<String> args = new ArrayList<>();
         final String bundleAuditPath = Settings.getString(Settings.KEYS.ANALYZER_BUNDLE_AUDIT_PATH);
         File bundleAudit = null;
         if (bundleAuditPath != null) {
@@ -132,7 +132,8 @@ public class RubyBundleAuditAnalyzer extends AbstractFileTypeAnalyzer {
             LOGGER.info("Launching: " + args + " from " + folder);
             return builder.start();
         } catch (IOException ioe) {
-            throw new AnalysisException("bundle-audit failure", ioe);
+            throw new AnalysisException("bundle-audit initialization failure; this error can be ignored if you are not analyzing Ruby. "
+                    + "Otherwise ensure that bundle-audit is installed and the path to bundle audit is correctly specified", ioe);
         }
     }
 
@@ -145,8 +146,7 @@ public class RubyBundleAuditAnalyzer extends AbstractFileTypeAnalyzer {
     @Override
     public void initializeFileTypeAnalyzer() throws InitializationException {
         try {
-            cvedb = new CveDB();
-            cvedb.open();
+            cvedb = CveDB.getInstance();
         } catch (DatabaseException ex) {
             LOGGER.warn("Exception opening the database");
             LOGGER.debug("error", ex);
@@ -160,8 +160,6 @@ public class RubyBundleAuditAnalyzer extends AbstractFileTypeAnalyzer {
         } catch (AnalysisException ae) {
 
             setEnabled(false);
-            cvedb.close();
-            cvedb = null;
             final String msg = String.format("Exception from bundle-audit process: %s. Disabling %s", ae.getCause(), ANALYZER_NAME);
             throw new InitializationException(msg, ae);
         } catch (IOException ex) {
@@ -174,7 +172,7 @@ public class RubyBundleAuditAnalyzer extends AbstractFileTypeAnalyzer {
             exitValue = process.waitFor();
         } catch (InterruptedException ex) {
             setEnabled(false);
-            final String msg = String.format("Bundle-audit process was interupted. Disabling %s", ANALYZER_NAME);
+            final String msg = String.format("Bundle-audit process was interrupted. Disabling %s", ANALYZER_NAME);
             throw new InitializationException(msg);
         }
         if (0 == exitValue) {
@@ -182,9 +180,7 @@ public class RubyBundleAuditAnalyzer extends AbstractFileTypeAnalyzer {
             final String msg = String.format("Unexpected exit code from bundle-audit process. Disabling %s: %s", ANALYZER_NAME, exitValue);
             throw new InitializationException(msg);
         } else {
-            BufferedReader reader = null;
-            try {
-                reader = new BufferedReader(new InputStreamReader(process.getErrorStream(), "UTF-8"));
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getErrorStream(), "UTF-8"))) {
                 if (!reader.ready()) {
                     LOGGER.warn("Bundle-audit error stream unexpectedly not ready. Disabling " + ANALYZER_NAME);
                     setEnabled(false);
@@ -203,20 +199,23 @@ public class RubyBundleAuditAnalyzer extends AbstractFileTypeAnalyzer {
             } catch (IOException ex) {
                 setEnabled(false);
                 throw new InitializationException("Unable to read bundle-audit output.", ex);
-            } finally {
-                if (null != reader) {
-                    try {
-                        reader.close();
-                    } catch (IOException ex) {
-                        LOGGER.debug("Error closing reader", ex);
-                    }
-                }
             }
         }
 
         if (isEnabled()) {
             LOGGER.info(ANALYZER_NAME + " is enabled. It is necessary to manually run \"bundle-audit update\" "
                     + "occasionally to keep its database up to date.");
+        }
+    }
+
+    /**
+     * Closes the data source.
+     */
+    @Override
+    public void closeAnalyzer() {
+        if (cvedb != null) {
+            cvedb.close();
+            cvedb = null;
         }
     }
 
@@ -298,35 +297,19 @@ public class RubyBundleAuditAnalyzer extends AbstractFileTypeAnalyzer {
             final String msg = String.format("Unexpected exit code from bundle-audit process; exit code: %s", exitValue);
             throw new AnalysisException(msg);
         }
-        BufferedReader rdr = null;
-        BufferedReader errReader = null;
         try {
-            errReader = new BufferedReader(new InputStreamReader(process.getErrorStream(), "UTF-8"));
-            while (errReader.ready()) {
-                final String error = errReader.readLine();
-                LOGGER.warn(error);
+            try (BufferedReader errReader = new BufferedReader(new InputStreamReader(process.getErrorStream(), "UTF-8"))) {
+                while (errReader.ready()) {
+                    final String error = errReader.readLine();
+                    LOGGER.warn(error);
+                }
             }
-            rdr = new BufferedReader(new InputStreamReader(process.getInputStream(), "UTF-8"));
-            processBundlerAuditOutput(dependency, engine, rdr);
+            try (BufferedReader rdr = new BufferedReader(new InputStreamReader(process.getInputStream(), "UTF-8"))) {
+                processBundlerAuditOutput(dependency, engine, rdr);
+            }
         } catch (IOException ioe) {
             LOGGER.warn("bundle-audit failure", ioe);
-        } finally {
-            if (errReader != null) {
-                try {
-                    errReader.close();
-                } catch (IOException ioe) {
-                    LOGGER.warn("bundle-audit close failure", ioe);
-                }
-            }
-            if (null != rdr) {
-                try {
-                    rdr.close();
-                } catch (IOException ioe) {
-                    LOGGER.warn("bundle-audit close failure", ioe);
-                }
-            }
         }
-
     }
 
     /**
@@ -344,7 +327,7 @@ public class RubyBundleAuditAnalyzer extends AbstractFileTypeAnalyzer {
         Dependency dependency = null;
         Vulnerability vulnerability = null;
         String gem = null;
-        final Map<String, Dependency> map = new HashMap<String, Dependency>();
+        final Map<String, Dependency> map = new HashMap<>();
         boolean appendToDescription = false;
         while (rdr.ready()) {
             final String nextLine = rdr.readLine();
@@ -373,10 +356,8 @@ public class RubyBundleAuditAnalyzer extends AbstractFileTypeAnalyzer {
                             + "Title link may not work. CPE below is guessed. CVSS score is estimated (-1.0 "
                             + " indicates unknown). See link below for full details. *** ");
                 }
-            } else if (appendToDescription) {
-                if (null != vulnerability) {
-                    vulnerability.setDescription(vulnerability.getDescription() + nextLine + "\n");
-                }
+            } else if (appendToDescription && null != vulnerability) {
+                vulnerability.setDescription(vulnerability.getDescription() + nextLine + "\n");
             }
         }
     }

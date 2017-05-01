@@ -48,7 +48,17 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
      */
     private static final Logger LOGGER = LoggerFactory.getLogger(EvidenceCollection.class);
     /**
-     * Used to iterate over highest confidence evidence contained in the collection.
+     * A collection of evidence.
+     */
+    private final Set<Evidence> list;
+    /**
+     * A collection of strings used to adjust Lucene's term weighting.
+     */
+    private final Set<String> weightedStrings;
+
+    /**
+     * Used to iterate over highest confidence evidence contained in the
+     * collection.
      */
     private static final Filter<Evidence> HIGHEST_CONFIDENCE = new Filter<Evidence>() {
         @Override
@@ -57,7 +67,8 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
         }
     };
     /**
-     * Used to iterate over high confidence evidence contained in the collection.
+     * Used to iterate over high confidence evidence contained in the
+     * collection.
      */
     private static final Filter<Evidence> HIGH_CONFIDENCE = new Filter<Evidence>() {
         @Override
@@ -66,7 +77,8 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
         }
     };
     /**
-     * Used to iterate over medium confidence evidence contained in the collection.
+     * Used to iterate over medium confidence evidence contained in the
+     * collection.
      */
     private static final Filter<Evidence> MEDIUM_CONFIDENCE = new Filter<Evidence>() {
         @Override
@@ -84,7 +96,8 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
         }
     };
     /**
-     * Used to iterate over evidence that has was used (aka read) from the collection.
+     * Used to iterate over evidence that has was used (aka read) from the
+     * collection.
      */
     private static final Filter<Evidence> EVIDENCE_USED = new Filter<Evidence>() {
         @Override
@@ -96,35 +109,32 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
     /**
      * Used to iterate over evidence of the specified confidence.
      *
-     * @param confidence the confidence level for the evidence to be iterated over.
+     * @param confidence the confidence level for the evidence to be iterated
+     * over.
      * @return Iterable&lt;Evidence&gt; an iterable collection of evidence
      */
     public final Iterable<Evidence> iterator(Confidence confidence) {
-        if (confidence == Confidence.HIGHEST) {
-            return EvidenceCollection.HIGHEST_CONFIDENCE.filter(this.list);
-        } else if (confidence == Confidence.HIGH) {
-            return EvidenceCollection.HIGH_CONFIDENCE.filter(this.list);
-        } else if (confidence == Confidence.MEDIUM) {
-            return EvidenceCollection.MEDIUM_CONFIDENCE.filter(this.list);
-        } else {
-            return EvidenceCollection.LOW_CONFIDENCE.filter(this.list);
+        if (null != confidence) {
+            switch (confidence) {
+                case HIGHEST:
+                    return EvidenceCollection.HIGHEST_CONFIDENCE.filter(this.list);
+                case HIGH:
+                    return EvidenceCollection.HIGH_CONFIDENCE.filter(this.list);
+                case MEDIUM:
+                    return EvidenceCollection.MEDIUM_CONFIDENCE.filter(this.list);
+                default:
+                    return EvidenceCollection.LOW_CONFIDENCE.filter(this.list);
+            }
         }
+        return null;
     }
-    /**
-     * A collection of evidence.
-     */
-    private final Set<Evidence> list;
-    /**
-     * A collection of strings used to adjust Lucene's term weighting.
-     */
-    private final Set<String> weightedStrings;
 
     /**
      * Creates a new EvidenceCollection.
      */
     public EvidenceCollection() {
-        list = new TreeSet<Evidence>();
-        weightedStrings = new HashSet<String>();
+        list = new TreeSet<>();
+        weightedStrings = new HashSet<>();
     }
 
     /**
@@ -137,7 +147,8 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
     }
 
     /**
-     * Creates an Evidence object from the parameters and adds the resulting object to the collection.
+     * Creates an Evidence object from the parameters and adds the resulting
+     * object to the collection.
      *
      * @param source the source of the Evidence.
      * @param name the name of the Evidence.
@@ -150,12 +161,16 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
     }
 
     /**
-     * Adds term to the weighting collection. The terms added here are used later to boost the score of other terms. This is a way
-     * of combining evidence from multiple sources to boost the confidence of the given evidence.
+     * Adds term to the weighting collection. The terms added here are used
+     * later to boost the score of other terms. This is a way of combining
+     * evidence from multiple sources to boost the confidence of the given
+     * evidence.
      *
-     * Example: The term 'Apache' is found in the manifest of a JAR and is added to the Collection. When we parse the package
-     * names within the JAR file we may add these package names to the "weighted" strings collection to boost the score in the
-     * Lucene query. That way when we construct the Lucene query we find the term Apache in the collection AND in the weighted
+     * Example: The term 'Apache' is found in the manifest of a JAR and is added
+     * to the Collection. When we parse the package names within the JAR file we
+     * may add these package names to the "weighted" strings collection to boost
+     * the score in the Lucene query. That way when we construct the Lucene
+     * query we find the term Apache in the collection AND in the weighted
      * strings; as such, we will boost the confidence of the term Apache.
      *
      * @param str to add to the weighting collection.
@@ -165,8 +180,8 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
     }
 
     /**
-     * Returns a set of Weightings - a list of terms that are believed to be of higher confidence when also found in another
-     * location.
+     * Returns a set of Weightings - a list of terms that are believed to be of
+     * higher confidence when also found in another location.
      *
      * @return Set&lt;String&gt;
      */
@@ -193,7 +208,7 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
         if (source == null) {
             return null;
         }
-        final Set<Evidence> ret = new HashSet<Evidence>();
+        final Set<Evidence> ret = new HashSet<>();
         for (Evidence e : list) {
             if (source.equals(e.getSource())) {
                 ret.add(e);
@@ -213,7 +228,7 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
         if (source == null || name == null) {
             return null;
         }
-        final Set<Evidence> ret = new HashSet<Evidence>();
+        final Set<Evidence> ret = new HashSet<>();
         for (Evidence e : list) {
             if (source.equals(e.getSource()) && name.equals(e.getName())) {
                 ret.add(e);
@@ -255,7 +270,8 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
     }
 
     /**
-     * Used to determine if a given version was used (aka read) from the EvidenceCollection.
+     * Used to determine if a given version was used (aka read) from the
+     * EvidenceCollection.
      *
      * @param version the version to search for within the collected evidence.
      * @return whether or not the string was used.
@@ -275,7 +291,8 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
     }
 
     /**
-     * Returns whether or not the collection contains evidence of a specified Confidence.
+     * Returns whether or not the collection contains evidence of a specified
+     * Confidence.
      *
      * @param confidence A Confidence value.
      * @return boolean.
@@ -290,7 +307,8 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
     }
 
     /**
-     * Merges multiple EvidenceCollections together, only merging evidence that was used, into a new EvidenceCollection.
+     * Merges multiple EvidenceCollections together, only merging evidence that
+     * was used, into a new EvidenceCollection.
      *
      * @param ec One or more EvidenceCollections.
      * @return a new EvidenceCollection containing the used evidence.
@@ -323,13 +341,15 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
     }
 
     /**
-     * Merges multiple EvidenceCollections together; flattening all of the evidence items by removing the confidence.
+     * Merges multiple EvidenceCollections together; flattening all of the
+     * evidence items by removing the confidence.
      *
      * @param ec One or more EvidenceCollections
-     * @return new set of evidence resulting from merging the evidence in the collections
+     * @return new set of evidence resulting from merging the evidence in the
+     * collections
      */
     public static Set<Evidence> mergeForDisplay(EvidenceCollection... ec) {
-        final Set<Evidence> ret = new TreeSet<Evidence>();
+        final Set<Evidence> ret = new TreeSet<>();
         for (EvidenceCollection col : ec) {
             for (Evidence e : col) {
                 //if (e.isUsed()) {
@@ -367,18 +387,20 @@ public class EvidenceCollection implements Serializable, Iterable<Evidence> {
 
     /**
      * <p>
-     * Takes a string that may contain a fully qualified domain and it will return the string having removed the query string, the
-     * protocol, the sub-domain of 'www', and the file extension of the path.</p>
+     * Takes a string that may contain a fully qualified domain and it will
+     * return the string having removed the query string, the protocol, the
+     * sub-domain of 'www', and the file extension of the path.</p>
      * <p>
-     * This is useful for checking if the evidence contains a specific string. The presence of the protocol, file extension, etc.
-     * may produce false positives.
+     * This is useful for checking if the evidence contains a specific string.
+     * The presence of the protocol, file extension, etc. may produce false
+     * positives.
      *
      * <p>
      * Example, given the following input:</p>
-     * <code>'Please visit https://www.somedomain.com/path1/path2/file.php?id=439'</code>
+     * <code>'Please visit https://www.owasp.com/path1/path2/file.php?id=439'</code>
      * <p>
      * The function would return:</p>
-     * <code>'Please visit somedomain path1 path2 file'</code>
+     * <code>'Please visit owasp path1 path2 file'</code>
      *
      * @param value the value that may contain a url
      * @return the modified string

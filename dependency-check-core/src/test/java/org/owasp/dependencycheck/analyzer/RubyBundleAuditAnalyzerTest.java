@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.junit.After;
+import static org.junit.Assert.assertNotNull;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
@@ -44,6 +45,8 @@ import org.owasp.dependencycheck.exception.ExceptionCollection;
 import org.owasp.dependencycheck.utils.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import static org.junit.Assert.fail;
+import org.owasp.dependencycheck.exception.InitializationException;
 
 /**
  * Unit tests for {@link RubyBundleAuditAnalyzer}.
@@ -64,10 +67,8 @@ public class RubyBundleAuditAnalyzerTest extends BaseDBTestCase {
      *
      * @throws Exception thrown if there is a problem
      */
-    @Override
     @Before
     public void setUp() throws Exception {
-        super.setUp();
         Settings.setBoolean(Settings.KEYS.AUTO_UPDATE, false);
         Settings.setBoolean(Settings.KEYS.ANALYZER_NEXUS_ENABLED, false);
         Settings.setBoolean(Settings.KEYS.ANALYZER_CENTRAL_ENABLED, false);
@@ -82,8 +83,10 @@ public class RubyBundleAuditAnalyzerTest extends BaseDBTestCase {
      */
     @After
     public void tearDown() throws Exception {
-        analyzer.close();
-        analyzer = null;
+        if (analyzer != null) {
+            analyzer.close();
+            analyzer = null;
+        }
     }
 
     /**
@@ -123,7 +126,7 @@ public class RubyBundleAuditAnalyzerTest extends BaseDBTestCase {
             assertTrue(dependency.getVersionEvidence().toString().toLowerCase().contains("2.2.2"));
             assertTrue(dependency.getFilePath().endsWith(resource));
             assertTrue(dependency.getFileName().equals("Gemfile.lock"));
-        } catch (Exception e) {
+        } catch (InitializationException | DatabaseException | AnalysisException e) {
             LOGGER.warn("Exception setting up RubyBundleAuditAnalyzer. Make sure Ruby gem bundle-audit is installed. You may also need to set property \"analyzer.bundle.audit.path\".");
             Assume.assumeNoException("Exception setting up RubyBundleAuditAnalyzer; bundle audit may not be installed, or property \"analyzer.bundle.audit.path\" may not be set.", e);
         }
@@ -146,7 +149,7 @@ public class RubyBundleAuditAnalyzerTest extends BaseDBTestCase {
             Vulnerability vulnerability = dependency.getVulnerabilities().first();
             assertEquals(vulnerability.getCvssScore(), 5.0f, 0.0);
 
-        } catch (Exception e) {
+        } catch (InitializationException | DatabaseException | AnalysisException e) {
             LOGGER.warn("Exception setting up RubyBundleAuditAnalyzer. Make sure Ruby gem bundle-audit is installed. You may also need to set property \"analyzer.bundle.audit.path\".");
             Assume.assumeNoException("Exception setting up RubyBundleAuditAnalyzer; bundle audit may not be installed, or property \"analyzer.bundle.audit.path\" may not be set.", e);
         }
@@ -166,6 +169,7 @@ public class RubyBundleAuditAnalyzerTest extends BaseDBTestCase {
             analyzer.initialize();
         } catch (Exception e) {
             //expected, so ignore.
+            assertNotNull(e);
         } finally {
             assertThat(analyzer.isEnabled(), is(false));
             LOGGER.info("phantom-bundle-audit is not available. Ruby Bundle Audit Analyzer is disabled as expected.");
@@ -187,9 +191,10 @@ public class RubyBundleAuditAnalyzerTest extends BaseDBTestCase {
             engine.analyzeDependencies();
         } catch (NullPointerException ex) {
             LOGGER.error("NPE", ex);
-            throw ex;
+            fail(ex.getMessage());
         } catch (ExceptionCollection ex) {
             Assume.assumeNoException("Exception setting up RubyBundleAuditAnalyzer; bundle audit may not be installed, or property \"analyzer.bundle.audit.path\" may not be set.", ex);
+            return;
         }
         List<Dependency> dependencies = engine.getDependencies();
         LOGGER.info(dependencies.size() + " dependencies found.");

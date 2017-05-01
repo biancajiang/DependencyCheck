@@ -91,7 +91,7 @@ public class PomHandler extends DefaultHandler {
     /**
      * The stack of elements processed; used to determine the parent node.
      */
-    private final Deque<String> stack = new ArrayDeque<String>();
+    private final Deque<String> stack = new ArrayDeque<>();
     /**
      * The license object.
      */
@@ -132,47 +132,76 @@ public class PomHandler extends DefaultHandler {
     public void endElement(String uri, String localName, String qName) throws SAXException {
         stack.pop();
         final String parentNode = stack.peek();
-        if (PROJECT.equals(parentNode)) {
-            if (GROUPID.equals(qName)) {
-                model.setGroupId(currentText.toString());
-            } else if (ARTIFACTID.equals(qName)) {
-                model.setArtifactId(currentText.toString());
-            } else if (VERSION.equals(qName)) {
-                model.setVersion(currentText.toString());
-            } else if (NAME.equals(qName)) {
-                model.setName(currentText.toString());
-            } else if (ORGANIZATION.equals(qName)) {
-                model.setOrganization(currentText.toString());
-            } else if (DESCRIPTION.equals(qName)) {
-                model.setDescription(currentText.toString());
-            } else if (URL.equals(qName)) {
-                model.setProjectURL(currentText.toString());
-            }
-        } else if (PARENT.equals(parentNode)) {
-            if (GROUPID.equals(qName)) {
-                model.setParentGroupId(currentText.toString());
-            } else if (ARTIFACTID.equals(qName)) {
-                model.setParentArtifactId(currentText.toString());
-            } else if (VERSION.equals(qName)) {
-                model.setParentVersion(currentText.toString());
-            }
-        } else if (LICENSE.equals(parentNode)) {
-            if (license != null) {
-                if (NAME.equals(qName)) {
-                    license.setName(currentText.toString());
-                } else if (URL.equals(qName)) {
-                    license.setUrl(currentText.toString());
-                }
-                //} else {
-                //TODO add error logging
-            }
-        } else if (LICENSES.equals(parentNode)) {
-            if (LICENSE.equals(qName)) {
-                if (license != null) {
-                    model.addLicense(license);
-                    //} else {
-                    //TODO add error logging
-                }
+        if (null != parentNode) {
+            switch (parentNode) {
+                case PROJECT:
+                    if (null != qName) {
+                        switch (qName) {
+                            case GROUPID:
+                                model.setGroupId(currentText.toString());
+                                break;
+                            case ARTIFACTID:
+                                model.setArtifactId(currentText.toString());
+                                break;
+                            case VERSION:
+                                model.setVersion(currentText.toString());
+                                break;
+                            case NAME:
+                                model.setName(currentText.toString());
+                                break;
+                            case DESCRIPTION:
+                                model.setDescription(currentText.toString());
+                                break;
+                            case URL:
+                                model.setProjectURL(currentText.toString());
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    break;
+                case ORGANIZATION:
+                    if (NAME.equals(qName)) {
+                        model.setOrganization(currentText.toString());
+                    } else if (URL.equals(qName)) {
+                        model.setOrganizationUrl(currentText.toString());
+                    }
+                    break;
+                case PARENT:
+                    if (null != qName) {
+                        switch (qName) {
+                            case GROUPID:
+                                model.setParentGroupId(currentText.toString());
+                                break;
+                            case ARTIFACTID:
+                                model.setParentArtifactId(currentText.toString());
+                                break;
+                            case VERSION:
+                                model.setParentVersion(currentText.toString());
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    break;
+                case LICENSE:
+                    if (license != null) {
+                        if (NAME.equals(qName)) {
+                            license.setName(currentText.toString());
+                        } else if (URL.equals(qName)) {
+                            license.setUrl(currentText.toString());
+                        }
+                    }
+                    break;
+                case LICENSES:
+                    if (LICENSE.equals(qName)) {
+                        if (license != null) {
+                            model.addLicense(license);
+                        }
+                    }
+                    break;
+                default:
+                    break;
             }
         }
     }

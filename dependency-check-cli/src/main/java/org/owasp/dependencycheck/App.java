@@ -223,13 +223,13 @@ public class App {
         int retCode = 0;
         try {
             engine = new Engine();
-            final List<String> antStylePaths = new ArrayList<String>();
+            final List<String> antStylePaths = new ArrayList<>();
             for (String file : files) {
                 final String antPath = ensureCanonicalPath(file);
                 antStylePaths.add(antPath);
             }
 
-            final Set<File> paths = new HashSet<File>();
+            final Set<File> paths = new HashSet<>();
             for (String file : antStylePaths) {
                 LOGGER.debug("Scanning {}", file);
                 final DirectoryScanner scanner = new DirectoryScanner();
@@ -283,17 +283,14 @@ public class App {
             }
             final List<Dependency> dependencies = engine.getDependencies();
             DatabaseProperties prop = null;
-            CveDB cve = null;
-            try {
-                cve = new CveDB();
-                cve.open();
+            try (CveDB cve = CveDB.getInstance()) {
                 prop = cve.getDatabaseProperties();
-            } finally {
-                if (cve != null) {
-                    cve.close();
-                }
+            } catch (DatabaseException ex) {
+                //TODO shouldn't this be a fatal exception
+                LOGGER.debug("Unable to retrieve DB Properties", ex);
             }
             final ReportGenerator report = new ReportGenerator(applicationName, dependencies, engine.getAnalyzers(), prop);
+
             try {
                 report.generateReports(reportDirectory, outputFormat);
             } catch (ReportException ex) {
@@ -468,7 +465,7 @@ public class App {
         encoder.setPattern("%d %C:%L%n%-5level - %msg%n");
         encoder.setContext(context);
         encoder.start();
-        final FileAppender<ILoggingEvent> fa = new FileAppender<ILoggingEvent>();
+        final FileAppender<ILoggingEvent> fa = new FileAppender<>();
         fa.setAppend(true);
         fa.setEncoder(encoder);
         fa.setContext(context);

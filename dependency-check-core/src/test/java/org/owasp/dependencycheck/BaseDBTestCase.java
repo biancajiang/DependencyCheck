@@ -24,6 +24,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import org.apache.commons.compress.utils.IOUtils;
 import org.junit.Before;
 import org.owasp.dependencycheck.utils.Settings;
 import org.slf4j.Logger;
@@ -42,17 +43,15 @@ public abstract class BaseDBTestCase extends BaseTest {
     private final static Logger LOGGER = LoggerFactory.getLogger(BaseDBTestCase.class);
 
     @Before
-    public void setUp() throws Exception {
+    public void setUpDb() throws Exception {
         ensureDBExists();
     }
 
     public static void ensureDBExists() throws Exception {
-
         File f = new File("./target/data/dc.h2.db");
         if (f.exists() && f.isFile() && f.length() < 71680) {
             f.delete();
         }
-
         File dataPath = Settings.getDataDirectory();
         String fileName = Settings.getString(Settings.KEYS.DB_FILE_NAME);
         LOGGER.trace("DB file name {}", fileName);
@@ -61,12 +60,9 @@ public abstract class BaseDBTestCase extends BaseTest {
         if (!dataPath.exists() || !dataFile.exists()) {
             LOGGER.trace("Extracting database to {}", dataPath.toString());
             dataPath.mkdirs();
-            FileInputStream fis = null;
-            ZipInputStream zin = null;
-            try {
-                File path = new File(BaseDBTestCase.class.getClassLoader().getResource("data.zip").toURI().getPath());
-                fis = new FileInputStream(path);
-                zin = new ZipInputStream(new BufferedInputStream(fis));
+            File path = new File(BaseDBTestCase.class.getClassLoader().getResource("data.zip").toURI().getPath());
+            try (FileInputStream fis = new FileInputStream(path);
+                    ZipInputStream zin = new ZipInputStream(new BufferedInputStream(fis))) {
                 ZipEntry entry;
                 while ((entry = zin.getNextEntry()) != null) {
                     if (entry.isDirectory()) {
@@ -74,52 +70,14 @@ public abstract class BaseDBTestCase extends BaseTest {
                         d.mkdir();
                         continue;
                     }
-                    FileOutputStream fos = null;
-                    BufferedOutputStream dest = null;
-                    try {
-                        File o = new File(dataPath, entry.getName());
-                        o.createNewFile();
-                        fos = new FileOutputStream(o, false);
-                        dest = new BufferedOutputStream(fos, BUFFER_SIZE);
-                        byte data[] = new byte[BUFFER_SIZE];
-                        int count;
-                        while ((count = zin.read(data, 0, BUFFER_SIZE)) != -1) {
-                            dest.write(data, 0, count);
-                        }
+                    File o = new File(dataPath, entry.getName());
+                    o.createNewFile();
+                    try (FileOutputStream fos = new FileOutputStream(o, false);
+                            BufferedOutputStream dest = new BufferedOutputStream(fos, BUFFER_SIZE)) {
+                        IOUtils.copy(zin, dest);
                     } catch (Throwable ex) {
                         LOGGER.error("", ex);
-                    } finally {
-                        try {
-                            if (dest != null) {
-                                dest.flush();
-                                dest.close();
-                            }
-                        } catch (Throwable ex) {
-                            LOGGER.trace("", ex);
-                        }
-                        try {
-                            if (fos != null) {
-                                fos.close();
-                            }
-                        } catch (Throwable ex) {
-                            LOGGER.trace("", ex);
-                        }
                     }
-                }
-            } finally {
-                try {
-                    if (zin != null) {
-                        zin.close();
-                    }
-                } catch (Throwable ex) {
-                    LOGGER.trace("", ex);
-                }
-                try {
-                    if (fis != null) {
-                        fis.close();
-                    }
-                } catch (Throwable ex) {
-                    LOGGER.trace("", ex);
                 }
             }
         }

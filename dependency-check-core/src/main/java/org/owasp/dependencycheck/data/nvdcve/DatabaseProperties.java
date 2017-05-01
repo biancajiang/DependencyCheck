@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.TreeMap;
+import javax.annotation.concurrent.ThreadSafe;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -31,9 +32,11 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This is a wrapper around a set of properties that are stored in the database.
+ * This class is safe to be accessed from multiple threads in parallel.
  *
  * @author Jeremy Long
  */
+@ThreadSafe
 public class DatabaseProperties {
 
     /**
@@ -163,7 +166,7 @@ public class DatabaseProperties {
      * @return a map of the database meta data
      */
     public Map<String, String> getMetaData() {
-        final Map<String, String> map = new TreeMap<String, String>();
+        final Map<String, String> map = new TreeMap<>();
         for (Entry<Object, Object> entry : properties.entrySet()) {
             final String key = (String) entry.getKey();
             if (!"version".equals(key)) {

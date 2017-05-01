@@ -163,8 +163,7 @@ public class CPEAnalyzer extends AbstractAnalyzer {
      */
     public void open() throws IOException, DatabaseException {
         if (!isOpen()) {
-            cve = new CveDB();
-            cve.open();
+            cve = CveDB.getInstance();
             cpe = CpeMemoryIndex.getInstance();
             try {
                 final long creationStart = System.currentTimeMillis();
@@ -183,16 +182,21 @@ public class CPEAnalyzer extends AbstractAnalyzer {
      */
     @Override
     public void closeAnalyzer() {
-        if (cpe != null) {
-            cpe.close();
-            cpe = null;
-        }
         if (cve != null) {
             cve.close();
             cve = null;
         }
+        if (cpe != null) {
+            cpe.close();
+            cpe = null;
+        }
     }
 
+    /**
+     * Returns whether or not the analyzer is open.
+     *
+     * @return <code>true</code> if the analyzer is open
+     */
     public boolean isOpen() {
         return cpe != null && cpe.isOpen();
     }
@@ -208,7 +212,7 @@ public class CPEAnalyzer extends AbstractAnalyzer {
      * @throws ParseException is thrown when the Lucene query cannot be parsed.
      */
     protected void determineCPE(Dependency dependency) throws CorruptIndexException, IOException, ParseException {
-        //TODO test dojo-war against this. we shold get dojo-toolkit:dojo-toolkit AND dojo-toolkit:toolkit
+        //TODO test dojo-war against this. we should get dojo-toolkit:dojo-toolkit AND dojo-toolkit:toolkit
         String vendors = "";
         String products = "";
         for (Confidence confidence : Confidence.values()) {
@@ -296,7 +300,7 @@ public class CPEAnalyzer extends AbstractAnalyzer {
     protected List<IndexEntry> searchCPE(String vendor, String product,
             Set<String> vendorWeightings, Set<String> productWeightings) {
 
-        final List<IndexEntry> ret = new ArrayList<IndexEntry>(MAX_QUERY_RESULTS);
+        final List<IndexEntry> ret = new ArrayList<>(MAX_QUERY_RESULTS);
 
         final String searchString = buildSearch(vendor, product, vendorWeightings, productWeightings);
         if (searchString == null) {
@@ -482,7 +486,7 @@ public class CPEAnalyzer extends AbstractAnalyzer {
             return false;
         }
         final String[] words = text.split("[\\s_-]");
-        final List<String> list = new ArrayList<String>();
+        final List<String> list = new ArrayList<>();
         String tempWord = null;
         for (String word : words) {
             /*
@@ -560,7 +564,7 @@ public class CPEAnalyzer extends AbstractAnalyzer {
         DependencyVersion bestGuess = new DependencyVersion("-");
         Confidence bestGuessConf = null;
         boolean hasBroadMatch = false;
-        final List<IdentifierMatch> collected = new ArrayList<IdentifierMatch>();
+        final List<IdentifierMatch> collected = new ArrayList<>();
 
         //TODO the following algorithm incorrectly identifies things as a lower version
         // if there lower confidence evidence when the current (highest) version number
@@ -599,11 +603,10 @@ public class CPEAnalyzer extends AbstractAnalyzer {
                         }
                     }
                 }
-                if (bestGuessConf == null || bestGuessConf.compareTo(conf) > 0) {
-                    if (bestGuess.getVersionParts().size() < evVer.getVersionParts().size()) {
-                        bestGuess = evVer;
-                        bestGuessConf = conf;
-                    }
+                if ((bestGuessConf == null || bestGuessConf.compareTo(conf) > 0)
+                        && bestGuess.getVersionParts().size() < evVer.getVersionParts().size()) {
+                    bestGuess = evVer;
+                    bestGuessConf = conf;
                 }
             }
         }
@@ -613,10 +616,12 @@ public class CPEAnalyzer extends AbstractAnalyzer {
             final String cpeUrlName = String.format("cpe:/a:%s:%s", vendor, product);
             url = String.format(NVD_SEARCH_URL, URLEncoder.encode(cpeUrlName, "UTF-8"));
         }
-        if (bestGuessConf == null) {
+        if (bestGuessConf
+                == null) {
             bestGuessConf = Confidence.LOW;
         }
         final IdentifierMatch match = new IdentifierMatch("cpe", cpeName, url, IdentifierConfidence.BEST_GUESS, bestGuessConf);
+
         collected.add(match);
 
         Collections.sort(collected);
@@ -648,6 +653,7 @@ public class CPEAnalyzer extends AbstractAnalyzer {
     @Override
     protected String getAnalyzerEnabledSettingKey() {
         return Settings.KEYS.ANALYZER_CPE_ENABLED;
+
     }
 
     /**
@@ -810,10 +816,7 @@ public class CPEAnalyzer extends AbstractAnalyzer {
             if (this.confidence != other.confidence) {
                 return false;
             }
-            if (this.identifier != other.identifier && (this.identifier == null || !this.identifier.equals(other.identifier))) {
-                return false;
-            }
-            return true;
+            return !(this.identifier != other.identifier && (this.identifier == null || !this.identifier.equals(other.identifier)));
         }
         //</editor-fold>
 

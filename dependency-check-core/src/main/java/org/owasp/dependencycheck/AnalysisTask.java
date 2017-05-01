@@ -34,7 +34,7 @@ import java.util.concurrent.Callable;
  *
  * @author Stefan Neuhaus
  */
-class AnalysisTask implements Callable<Void> {
+public class AnalysisTask implements Callable<Void> {
 
     /**
      * Instance of the logger.
@@ -86,7 +86,6 @@ class AnalysisTask implements Callable<Void> {
      * Executes the analysis task.
      *
      * @return null
-     * @throws Exception thrown if unable to execute the analysis task
      */
     @Override
     public Void call() {

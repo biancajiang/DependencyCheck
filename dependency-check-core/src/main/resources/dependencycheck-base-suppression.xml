@@ -68,21 +68,15 @@
     </suppress>
     <suppress base="true">
         <notes><![CDATA[
-        Suppresses false positives on glassfish
+        Suppresses false positives on glassfish and grizzly. Updated per issue #672.
         ]]></notes>
-        <gav regex="true">org\.glassfish:.*(json|faces).*</gav>
+        <gav regex="true">org\.glassfish(\.(web|grizzly)):.*(json|faces|jstl|grizzly).*</gav>
         <cpe>cpe:/a:oracle:glassfish</cpe>
+        <cpe>cpe:/a:oracle:glassfish_server</cpe>
     </suppress>
     <suppress base="true">
         <notes><![CDATA[
-        Suppresses false positives on the grizzly-framework
-        ]]></notes>
-        <gav regex="true">org\.glassfish\.grizzly:grizzly-framework:.*</gav>
-        <cpe>cpe:/a:oracle:glassfish</cpe>
-    </suppress>
-    <suppress base="true">
-        <notes><![CDATA[
-        Suppresses false positives on the grizzly-framework
+        Suppresses false positives on ldap_project (issue #165).
         ]]></notes>
         <gav regex="true">org\.forgerock\.opendj:opendj-ldap-sdk:.*</gav>
         <cpe>cpe:/a:ldap_project:ldap</cpe>
@@ -490,7 +484,6 @@
         <gav regex="true">^org\.springframework:spring-context:.*$</gav>
         <cpe>cpe:/a:context_project:context</cpe>
     </suppress>
-    
     <suppress base="true">
         <notes><![CDATA[
         Node.js false positives per issues #512 and #510
@@ -500,5 +493,72 @@
         <cpe>cpe:/a:file:file</cpe>
         <cpe>cpe:/a:shim:shim</cpe>
         <cpe>cpe:/a:shim_project:shim</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+       False positives on python.
+       ]]></notes>
+        <filePath regex="true">.*__init__\.py$</filePath>
+        <cpe>cpe:/a:shim:shim</cpe>
+        <cpe>cpe:/a:python:python</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+        checkpoint firewall is not at the application layer.
+        ]]></notes>
+        <filePath regex="true">.*</filePath>
+        <cpe>cpe:/a:checkpoint:check_point</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+       Bouncy Castle Time Stamp Protocol is not related to openpgp.
+       ]]></notes>
+        <gav regex="true">^org\.bouncycastle:bctsp.*$</gav>
+        <cpe>cpe:/a:openpgp:openpgp</cpe>
+        <cpe>cpe:/a:pgp:openpgp</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+       Apache XML Graphics is used by Batik - but should not be identified as batik.
+       ]]></notes>
+        <gav regex="true">^org\.apache\.xmlgraphics:xmlgraphics-commons:.*$</gav>
+        <cpe>cpe:/a:apache:batik</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+        False positive suppression per issue #664 for JJWT - A Java and Android JSON Web Token library
+        ]]></notes>
+        <gav regex="true">^io\.jsonwebtoken:jjwt:.*$</gav>
+        <cpe>cpe:/a:sonatype:nexus</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+        False positive suppresion per issue #679 - jcore is a php wbe cms.
+        ]]></notes>
+        <gav regex="true">^org\.apache\.james:apache-mime4j-core:.*$</gav>
+        <cpe>cpe:/a:jcore:jcore</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+        False positive
+        ]]></notes>
+        <gav regex="true">^javax\.servlet:servlet-api:.*$</gav>
+        <cpe>cpe:/a:sun:one_application_server</cpe>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+        False positives per issue #684.
+        ]]></notes>
+        <gav regex="true">^org\.apache\.tomcat\.embed:tomcat-embed.*$</gav>
+        <cve>CVE-2017-6056</cve>
+        <cve>CVE-2016-6325</cve>
+        <cve>CVE-2016-5425</cve>
+    </suppress>
+    <suppress base="true">
+        <notes><![CDATA[
+        False positive per issue #691
+        ]]></notes>
+        <gav regex="true">^org\.springframework\.boot:spring-boot-starter-data-jpa:.*$</gav>
+        <cve>CVE-2016-6652</cve>
     </suppress>
 </suppressions>

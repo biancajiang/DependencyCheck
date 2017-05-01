@@ -40,6 +40,10 @@ public class Model {
      */
     private String organization;
     /**
+     * The organization URL.
+     */
+    private String organizationUrl;
+    /**
      * The description.
      */
     private String description;
@@ -70,7 +74,7 @@ public class Model {
     /**
      * The list of licenses.
      */
-    private final List<License> licenses = new ArrayList<License>();
+    private final List<License> licenses = new ArrayList<>();
     /**
      * The project URL.
      */
@@ -110,6 +114,24 @@ public class Model {
      */
     public void setOrganization(String organization) {
         this.organization = organization;
+    }
+
+    /**
+     * Get the value of organizationUrl.
+     *
+     * @return the value of organizationUrl
+     */
+    public String getOrganizationUrl() {
+        return organizationUrl;
+    }
+
+    /**
+     * Set the value of organizationUrl.
+     *
+     * @param organizationUrl new value of organizationUrl
+     */
+    public void setOrganizationUrl(String organizationUrl) {
+        this.organizationUrl = organizationUrl;
     }
 
     /**

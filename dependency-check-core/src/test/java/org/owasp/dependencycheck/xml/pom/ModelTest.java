@@ -71,9 +71,10 @@ public class ModelTest extends BaseTest {
      */
     @Test
     public void testSetOrganization() {
-        String organization = "";
+        String organization = "apache";
         Model instance = new Model();
         instance.setOrganization(organization);
+        assertEquals("apache", instance.getOrganization());
     }
 
     /**
@@ -188,9 +189,10 @@ public class ModelTest extends BaseTest {
      */
     @Test
     public void testSetParentGroupId() {
-        String parentGroupId = "";
+        String parentGroupId = "org.owasp";
         Model instance = new Model();
         instance.setParentGroupId(parentGroupId);
+        assertEquals("org.owasp", instance.getParentGroupId());
     }
 
     /**
@@ -246,7 +248,7 @@ public class ModelTest extends BaseTest {
     public void testGetLicenses() {
         Model instance = new Model();
         instance.addLicense(new License("name", "url"));
-        List<License> expResult = new ArrayList<License>();
+        List<License> expResult = new ArrayList<>();
         expResult.add(new License("name", "url"));
         List<License> result = instance.getLicenses();
         assertEquals(expResult, result);

@@ -62,21 +62,6 @@ public final class CpeMemoryIndex {
      * singleton instance.
      */
     private static final CpeMemoryIndex INSTANCE = new CpeMemoryIndex();
-
-    /**
-     * private constructor for singleton.
-     */
-    private CpeMemoryIndex() {
-    }
-
-    /**
-     * Gets the singleton instance of the CpeMemoryIndex.
-     *
-     * @return the instance of the CpeMemoryIndex
-     */
-    public static CpeMemoryIndex getInstance() {
-        return INSTANCE;
-    }
     /**
      * The in memory Lucene index.
      */
@@ -105,6 +90,25 @@ public final class CpeMemoryIndex {
      * The search field analyzer for the vendor field.
      */
     private SearchFieldAnalyzer vendorFieldAnalyzer;
+    /**
+     * A flag indicating whether or not the index is open.
+     */
+    private boolean openState = false;
+
+    /**
+     * private constructor for singleton.
+     */
+    private CpeMemoryIndex() {
+    }
+
+    /**
+     * Gets the singleton instance of the CpeMemoryIndex.
+     *
+     * @return the instance of the CpeMemoryIndex
+     */
+    public static CpeMemoryIndex getInstance() {
+        return INSTANCE;
+    }
 
     /**
      * Creates and loads data into an in memory index.
@@ -129,10 +133,6 @@ public final class CpeMemoryIndex {
             }
         }
     }
-    /**
-     * A flag indicating whether or not the index is open.
-     */
-    private boolean openState = false;
 
     /**
      * returns whether or not the index is open.
@@ -149,7 +149,7 @@ public final class CpeMemoryIndex {
      * @return the CPE Analyzer.
      */
     private Analyzer createSearchingAnalyzer() {
-        final Map<String, Analyzer> fieldAnalyzers = new HashMap<String, Analyzer>();
+        final Map<String, Analyzer> fieldAnalyzers = new HashMap<>();
         fieldAnalyzers.put(Fields.DOCUMENT_KEY, new KeywordAnalyzer());
         productFieldAnalyzer = new SearchFieldAnalyzer(LuceneUtils.CURRENT_VERSION);
         vendorFieldAnalyzer = new SearchFieldAnalyzer(LuceneUtils.CURRENT_VERSION);
@@ -191,57 +191,35 @@ public final class CpeMemoryIndex {
      * @throws IndexException thrown if there is an issue creating the index
      */
     private void buildIndex(CveDB cve) throws IndexException {
-        Analyzer analyzer = null;
-        IndexWriter indexWriter = null;
-        try {
-            analyzer = createSearchingAnalyzer();
-            final IndexWriterConfig conf = new IndexWriterConfig(LuceneUtils.CURRENT_VERSION, analyzer);
-            indexWriter = new IndexWriter(index, conf);
-            try {
-                // Tip: reuse the Document and Fields for performance...
-                // See "Re-use Document and Field instances" from
-                // http://wiki.apache.org/lucene-java/ImproveIndexingSpeed
-                final Document doc = new Document();
-                final Field v = new TextField(Fields.VENDOR, Fields.VENDOR, Field.Store.YES);
-                final Field p = new TextField(Fields.PRODUCT, Fields.PRODUCT, Field.Store.YES);
-                doc.add(v);
-                doc.add(p);
+        try (Analyzer analyzer = createSearchingAnalyzer();
+                IndexWriter indexWriter = new IndexWriter(index, new IndexWriterConfig(LuceneUtils.CURRENT_VERSION, analyzer))) {
+            // Tip: reuse the Document and Fields for performance...
+            // See "Re-use Document and Field instances" from
+            // http://wiki.apache.org/lucene-java/ImproveIndexingSpeed
+            final Document doc = new Document();
+            final Field v = new TextField(Fields.VENDOR, Fields.VENDOR, Field.Store.YES);
+            final Field p = new TextField(Fields.PRODUCT, Fields.PRODUCT, Field.Store.YES);
+            doc.add(v);
+            doc.add(p);
 
-                final Set<Pair<String, String>> data = cve.getVendorProductList();
-                for (Pair<String, String> pair : data) {
-                    //todo figure out why there are null products
-                    if (pair.getLeft() != null && pair.getRight() != null) {
-                        v.setStringValue(pair.getLeft());
-                        p.setStringValue(pair.getRight());
-                        indexWriter.addDocument(doc);
-                        resetFieldAnalyzer();
-                    }
+            final Set<Pair<String, String>> data = cve.getVendorProductList();
+            for (Pair<String, String> pair : data) {
+                if (pair.getLeft() != null && pair.getRight() != null) {
+                    v.setStringValue(pair.getLeft());
+                    p.setStringValue(pair.getRight());
+                    indexWriter.addDocument(doc);
+                    resetFieldAnalyzer();
                 }
-            } catch (DatabaseException ex) {
-                LOGGER.debug("", ex);
-                throw new IndexException("Error reading CPE data", ex);
             }
+            indexWriter.commit();
+            indexWriter.close(true);
+        } catch (DatabaseException ex) {
+            LOGGER.debug("", ex);
+            throw new IndexException("Error reading CPE data", ex);
         } catch (CorruptIndexException ex) {
             throw new IndexException("Unable to close an in-memory index", ex);
         } catch (IOException ex) {
             throw new IndexException("Unable to close an in-memory index", ex);
-        } finally {
-            if (indexWriter != null) {
-                try {
-                    try {
-                        indexWriter.commit();
-                    } finally {
-                        indexWriter.close(true);
-                    }
-                } catch (CorruptIndexException ex) {
-                    throw new IndexException("Unable to close an in-memory index", ex);
-                } catch (IOException ex) {
-                    throw new IndexException("Unable to close an in-memory index", ex);
-                }
-                if (analyzer != null) {
-                    analyzer.close();
-                }
-            }
         }
     }
 
@@ -267,11 +245,12 @@ public final class CpeMemoryIndex {
      * @throws IOException is thrown if there is an issue with the underlying
      * Index
      */
-    public TopDocs search(String searchString, int maxQueryResults) throws ParseException, IOException {
+    public synchronized TopDocs search(String searchString, int maxQueryResults) throws ParseException, IOException {
         if (searchString == null || searchString.trim().isEmpty()) {
             throw new ParseException("Query is null or empty");
         }
         LOGGER.debug(searchString);
+        resetFieldAnalyzer();
         final Query query = queryParser.parse(searchString);
         return search(query, maxQueryResults);
     }
@@ -285,7 +264,7 @@ public final class CpeMemoryIndex {
      * @throws CorruptIndexException thrown if the Index is corrupt
      * @throws IOException thrown if there is an IOException
      */
-    public TopDocs search(Query query, int maxQueryResults) throws CorruptIndexException, IOException {
+    public synchronized TopDocs search(Query query, int maxQueryResults) throws CorruptIndexException, IOException {
         resetFieldAnalyzer();
         return indexSearcher.search(query, maxQueryResults);
     }

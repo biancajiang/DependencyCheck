@@ -131,7 +131,7 @@ public class DriverLoaderTest extends BaseTest {
         File driver = new File(testClassPath, "../../src/test/resources/mysql-connector-java-5.1.27-bin.jar");
         assertTrue("MySQL Driver JAR file not found in src/test/resources?", driver.isFile());
 
-        Driver d = DriverLoader.load(className, driver.getAbsolutePath());
+        DriverLoader.load(className, driver.getAbsolutePath());
     }
 
     /**
@@ -144,6 +144,6 @@ public class DriverLoaderTest extends BaseTest {
         //File testClassPath = (new File(this.getClass().getClassLoader().getResource("org.mortbay.jetty.jar").getPath())).getParentFile();
         File testClassPath = BaseTest.getResourceAsFile(this, "org.mortbay.jetty.jar").getParentFile();
         File driver = new File(testClassPath, "../../src/test/bad/mysql-connector-java-5.1.27-bin.jar");
-        Driver d = DriverLoader.load(className, driver.getAbsolutePath());
+        DriverLoader.load(className, driver.getAbsolutePath());
     }
 }

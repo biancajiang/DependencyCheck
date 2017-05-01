@@ -19,6 +19,7 @@ package org.owasp.dependencycheck.data.nvdcve;
 
 import java.util.List;
 import java.util.Set;
+import static org.junit.Assert.assertFalse;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -39,13 +40,15 @@ public class CveDBMySQLTest extends BaseTest {
      */
     @Test
     public void testOpen() {
+        CveDB instance = null;
         try {
-            CveDB instance = new CveDB();
-            instance.open();
-            instance.close();
+            instance = CveDB.getInstance();
         } catch (DatabaseException ex) {
             System.out.println("Unable to connect to the My SQL database; verify that the db server is running and that the schema has been generated");
             fail(ex.getMessage());
+        } finally {
+            instance.close();
+            assertFalse(instance.isOpen());
         }
     }
 
@@ -54,11 +57,10 @@ public class CveDBMySQLTest extends BaseTest {
      */
     @Test
     public void testGetCPEs() throws Exception {
-        CveDB instance = new CveDB();
+        CveDB instance = CveDB.getInstance();
         try {
             String vendor = "apache";
             String product = "struts";
-            instance.open();
             Set<VulnerableSoftware> result = instance.getCPEs(vendor, product);
             assertTrue("Has data been loaded into the MySQL DB? if not consider using the CLI to populate it", result.size() > 5);
         } catch (Exception ex) {
@@ -75,9 +77,8 @@ public class CveDBMySQLTest extends BaseTest {
     @Test
     public void testGetVulnerabilities() throws Exception {
         String cpeStr = "cpe:/a:apache:struts:2.1.2";
-        CveDB instance = new CveDB();
+        CveDB instance = CveDB.getInstance();
         try {
-            instance.open();
             List<Vulnerability> result = instance.getVulnerabilities(cpeStr);
             assertTrue(result.size() > 5);
         } catch (Exception ex) {
